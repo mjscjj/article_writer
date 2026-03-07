@@ -53,11 +53,13 @@ class ImageClient(BaseImageGen):
             "Authorization": f"Bearer {self._config.api_key}",
             "Content-Type": "application/json",
         }
-        payload = {
+        payload: dict = {
             "model": self._config.image_model,
             "messages": [{"role": "user", "content": prompt}],
             "modalities": ["image", "text"],
         }
+        if self._config.image_aspect_ratio:
+            payload["aspect_ratio"] = self._config.image_aspect_ratio
 
         for attempt in range(_MAX_RETRIES + 1):
             try:

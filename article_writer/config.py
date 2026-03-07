@@ -40,6 +40,10 @@ class ModelConfig(BaseModel):
         default="1024x1024",
         description="生成图片的尺寸（openai provider 用），如 1024x1024",
     )
+    image_aspect_ratio: str = Field(
+        default="3:4",
+        description="生成图片的宽高比（openrouter/Gemini provider 用），如 1:1、3:4、4:3、16:9、9:16",
+    )
 
     def get_image_base_url(self) -> str:
         return self.base_url

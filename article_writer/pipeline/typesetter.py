@@ -26,7 +26,12 @@ _TYPESET_SYSTEM_PROMPT = """\
 2. 合理划分段落，每段聚焦一个主题或论点，控制在 50-200 字
 3. 识别文中的标题和小标题（包括 Markdown 格式的 ## 和 ###），标记 is_heading=true 并设置 heading_level (1=大标题, 2=小标题, 3=三级标题)
 4. 配图策略：{image_hint}
-5. 配图描述要用英文，具体描述一幅与段落内容相关的插画场景，包含主体、构图、色调、氛围
+5. 配图描述要用英文，描述一张**信息图（infographic）**，具体说明要在图中展示哪些数据、对比、流程或数字。
+   信息图要求：
+   - 必须包含段落中出现的具体数字/百分比/对比数据，以大号文字或数据可视化方式呈现
+   - 描述要细，至少写 3-4 行英文，说清楚：图的类型（统计图/流程图/对比图）、要显示的关键数字、版式风格、配色
+   - 风格：dark background, neon blue and purple accents, bold typography, data visualization, tech infographic style
+   - 如果段落没有具体数字，可以描述一个流程图或概念对比图，同样要有文字标注
 
 配图位置规则：
 - 引言段（前 1-2 段）和结语段不配图
@@ -58,7 +63,7 @@ _TYPESET_SYSTEM_PROMPT = """\
 {{
   "paragraphs": [
     {{"text": "## AI 正在改变写作方式", "is_heading": true, "heading_level": 2, "needs_image": false, "image_description": ""}},
-    {{"text": "过去一年，AI 写作工具用户增长了 300%。越来越多的内容创作者开始依赖 AI 来提升效率。", "is_heading": false, "heading_level": 0, "needs_image": true, "image_description": "A modern workspace with a laptop showing an AI writing interface, digital documents floating around the screen, warm blue and orange tones, clean flat illustration style"}},
+    {{"text": "过去一年，AI 写作工具用户增长了 300%。越来越多的内容创作者开始依赖 AI 来提升效率。", "is_heading": false, "heading_level": 0, "needs_image": true, "image_description": "A tall vertical tech infographic on a dark background with neon blue accents. Top section shows a bold stat: '300%' in giant glowing numbers with label 'AI Writing Tool User Growth (2024-2025)'. Below, a bar chart comparing 2023 vs 2024 adoption rates. Bottom section shows 3 icons representing content creators with upward trend arrows. Bold sans-serif typography, cyberpunk color scheme: deep navy background, electric blue and violet data elements, white text labels. Clean data visualization style."}},
     {{"text": "但这并不意味着人类作者将被取代。AI 擅长的是信息整合和初稿生成，而人类的优势在于情感表达和价值判断。", "is_heading": false, "heading_level": 0, "needs_image": false, "image_description": ""}}
   ]
 }}"""
@@ -199,22 +204,26 @@ class Typesetter:
 
         if is_cover and title_text:
             parts.append(
-                f'A professional magazine-style cover image with the Chinese title text '
-                f'"{title_text}" prominently displayed in bold modern typography. '
+                f'A professional tech magazine cover with the Chinese title text '
+                f'"{title_text}" in bold modern typography, large and prominent. '
+                f'Dark background with neon blue/purple gradient accent. '
                 f'{description}'
             )
         else:
-            parts.append(description)
+            parts.append(
+                f"A detailed vertical infographic image for a WeChat tech article. "
+                f"{description}"
+            )
 
         if style:
-            parts.append(f"Art style: {style}")
+            parts.append(f"Visual style: {style}")
 
         parts.append(
-            "Professional quality illustration suitable for a WeChat article. "
-            "Clean composition with balanced negative space. "
-            "No watermarks, no logos, no artifacts. "
-            "Vibrant but harmonious color palette. "
-            "4K resolution, sharp details."
+            "High quality, tall vertical format (portrait orientation) suitable for mobile reading. "
+            "All text in the image must be clearly legible, large font size. "
+            "Rich in detail — multiple data points, labels, and visual elements. "
+            "No watermarks, no logos. "
+            "Sharp 4K resolution."
         )
 
         return ". ".join(parts)
