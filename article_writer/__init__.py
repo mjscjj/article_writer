@@ -6,6 +6,13 @@ from article_writer.pipeline.article_generator import ArticleGenerator
 from article_writer.pipeline.typesetter import Typesetter
 from article_writer.pipeline.publisher import Publisher
 from article_writer.schema import Article, TypesetArticle, Paragraph
+from article_writer.prompts import (
+    CorePrompts,
+    WriterPreset,
+    ImagePreset,
+    ArticleSpec,
+    PromptBuilder,
+)
 
 __all__ = [
     "ModelConfig",
@@ -18,4 +25,9 @@ __all__ = [
     "Article",
     "TypesetArticle",
     "Paragraph",
+    "CorePrompts",
+    "WriterPreset",
+    "ImagePreset",
+    "ArticleSpec",
+    "PromptBuilder",
 ]

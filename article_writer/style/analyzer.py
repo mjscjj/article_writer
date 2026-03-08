@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 from article_writer.models.base import BaseLLM
+from article_writer.prompts.core_prompts import CorePrompts
 
 _STYLE_ANALYSIS_PROMPT = """\
 你是一个专门分析自媒体博主写作风格的工具。仔细阅读以下文章样本，从中提取这个作者的写作特征。
 
 需要分析的维度：
-1. **语气与口吻**：正式/轻松、严肃/幽默、客观/主观；有没有明显的个人立场
-2. **句式节奏**：长短句比例、是否有招牌节奏（如连续短句、突然转折句）
-3. **用词习惯**：口语化程度、是否夹英文词、专业术语密度
-4. **叙述视角**：第一人称比例、是否有亲身体验式的叙述
-5. **段落结构**：段落长度、小标题风格、开头结尾的常见套路
-6. **特色表达**：这个人说话时最有辨识度的句式或词汇
+{dimensions}
 
 【重点】额外提取以下内容（这是最重要的部分）：
 - **标志性口头禅**：这个作者常用的 5-8 个词语或句式，例如"说实话""其实挺""老实说""我最近在用"等，要从文本中真实提取，不要编造
@@ -41,19 +37,39 @@ class StyleAnalyzer:
         self._llm = llm
         self._cache: dict[int, str] = {}
 
-    def analyze(self, articles: list[str]) -> str:
+    def analyze(
+        self,
+        articles: list[str],
+        core: CorePrompts | None = None,
+    ) -> str:
         """分析多篇历史文章，返回风格描述 prompt。
 
-        结果按输入内容的 hash 缓存，相同文章不重复分析。
+        Args:
+            articles: 历史文章列表
+            core: 核心配置（可选），用于获取风格分析维度
+
+        Returns:
+            风格描述文本。
         """
         cache_key = hash(tuple(articles))
         if cache_key in self._cache:
             return self._cache[cache_key]
 
+        if core is None:
+            core = CorePrompts()
+
+        dimensions = "\n".join(
+            f"{i + 1}. **{dim}**"
+            for i, dim in enumerate(core.style_analysis_dimensions)
+        )
+
         joined = "\n\n---\n\n".join(
             f"【文章 {i + 1}】\n{a}" for i, a in enumerate(articles)
         )
-        prompt = _STYLE_ANALYSIS_PROMPT.format(articles=joined)
+        prompt = _STYLE_ANALYSIS_PROMPT.format(
+            dimensions=dimensions,
+            articles=joined,
+        )
 
         result = self._llm.generate(
             prompt=prompt,
