@@ -29,8 +29,6 @@ from article_writer import (
 )
 
 config = ModelConfig(
-    base_url="https://openrouter.ai/api/v1",
-    api_key="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",
     llm_model="qwen/qwen3.5-plus-02-15",
     temperature=0.7,
     max_tokens=32768,

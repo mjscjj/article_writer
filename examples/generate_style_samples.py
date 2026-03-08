@@ -1,5 +1,6 @@
 """生成 8 种公众号配图风格的样图，用于风格对比。"""
 
+import os
 import sys
 import json
 import base64
@@ -9,11 +10,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=False)
+except ImportError:
+    pass
+
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.siliconflow.cn/v1",
-    api_key="sk-ckhufymllutidyksgeegvcoenymqqsvauorjezcwtdcxaphy",
+    base_url=os.environ.get("ARTICLE_WRITER_BASE_URL", "https://openrouter.ai/api/v1"),
+    api_key=os.environ.get("ARTICLE_WRITER_API_KEY", ""),
 )
 
 SUBJECT = "a person writing an article on a laptop at a modern desk, with a cup of coffee and some books nearby"

@@ -1,6 +1,22 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+import os
+
+from pydantic import BaseModel, Field, model_validator
+
+
+def _env(key: str, fallback: str = "") -> str:
+    """从环境变量读取，支持 python-dotenv（如已安装会自动加载 .env）。"""
+    return os.environ.get(key, fallback)
+
+
+# 尝试自动加载 .env 文件（需要 python-dotenv，未安装时静默跳过）
+try:
+    from dotenv import load_dotenv as _load_dotenv
+
+    _load_dotenv(override=False)
+except ImportError:
+    pass
 
 
 class ModelConfig(BaseModel):
@@ -11,15 +27,20 @@ class ModelConfig(BaseModel):
     - 图片生成使用 image_model，通过 image_provider 指定调用方式：
       - "openrouter"：通过 chat/completions + modalities 调用（支持 Nano Banana 2 等）
       - "openai"：通过 images/generations 端点调用（FLUX、SDXL 等）
+
+    优先级（高 → 低）：
+      1. 构造时显式传入的值
+      2. 环境变量 ARTICLE_WRITER_BASE_URL / ARTICLE_WRITER_API_KEY
+      3. 代码默认值
     """
 
     base_url: str = Field(
-        default="https://openrouter.ai/api/v1",
-        description="API base URL（LLM 和图片生成共用）",
+        default="",
+        description="API base URL（LLM 和图片生成共用），默认读取 ARTICLE_WRITER_BASE_URL",
     )
     api_key: str = Field(
         default="",
-        description="API key（LLM 和图片生成共用）",
+        description="API key（LLM 和图片生成共用），默认读取 ARTICLE_WRITER_API_KEY",
     )
     llm_model: str = Field(
         default="qwen/qwen3.5-plus-02-15",
@@ -40,6 +61,17 @@ class ModelConfig(BaseModel):
         default="1024x1024",
         description="生成图片的尺寸（openai provider 用），如 1024x1024",
     )
+
+    @model_validator(mode="after")
+    def _fill_from_env(self) -> "ModelConfig":
+        """未显式传值时，从环境变量补全。"""
+        if not self.base_url:
+            self.base_url = _env(
+                "ARTICLE_WRITER_BASE_URL", "https://openrouter.ai/api/v1"
+            )
+        if not self.api_key:
+            self.api_key = _env("ARTICLE_WRITER_API_KEY", "")
+        return self
 
     def get_image_base_url(self) -> str:
         return self.base_url
