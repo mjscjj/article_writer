@@ -169,12 +169,14 @@ class PromptBuilder:
         core: CorePrompts,
         writer: WriterPreset,
         content: str,
+        article_spec: ArticleSpec | None = None,
     ) -> str:
         """组装润色阶段的 user prompt。
 
         结构：
         - 润色操作清单（来自 core.polish_checklist）
         - 禁词清单（core + writer.extra 合并）
+        - 结构约束（来自 article_spec，可选）
         - 原文
         """
         parts: list[str] = []
@@ -206,6 +208,20 @@ class PromptBuilder:
             "保持原文的核心观点、数据、段落顺序不变。只改表达方式，不增删实质内容。"
         )
         parts.append("")
+
+        # ---- 结构约束（来自 article_spec）----
+        if article_spec is not None:
+            parts.append("【结构约束——润色后必须满足，不得压缩文章】")
+            parts.append(
+                f"- 全文字数保持在 {article_spec.word_count_min}-{article_spec.word_count_max} 字之间，"
+                f"不得因润色导致字数大幅减少"
+            )
+            if article_spec.section_count > 0:
+                parts.append(
+                    f"- 保留 {article_spec.section_count} 个正文小节，不得合并或删减章节"
+                )
+            parts.append("")
+
         parts.append(
             "直接输出改写后的完整文章，不要解释改了什么。"
             "第一行为标题，之后空一行开始正文。"
@@ -246,6 +262,13 @@ class PromptBuilder:
                 f"(width:height = {image.aspect_ratio}). "
             )
 
+        # 全局语言约束：图片中的所有文字必须使用简体中文
+        parts.append(
+            "IMPORTANT: All text, labels, numbers, titles and annotations displayed "
+            "inside the image MUST be written in Simplified Chinese. "
+            "Do NOT use English words or Latin characters as image text. "
+        )
+
         if is_cover and title_text:
             parts.append(
                 f'{image.cover_style} '
@@ -284,45 +307,69 @@ class PromptBuilder:
 
     @staticmethod
     def build_typeset_image_guide(image: ImagePreset) -> str:
-        """为排版 prompt 生成配图描述指引。
-
-        告诉排版 LLM 应该生成什么类型的配图描述。
-        """
+        """为排版 prompt 生成配图描述指引（保留供外部使用）。"""
         type_guide = {
             "infographic": (
                 "配图描述要用英文，描述一张**信息图（infographic）**，"
                 "具体说明要在图中展示哪些数据、对比、流程或数字。\n"
                 "   信息图要求：\n"
-                "   - 必须包含段落中出现的具体数字/百分比/对比数据，以大号文字或数据可视化方式呈现\n"
-                "   - 描述要细，至少写 3-4 行英文，说清楚：图的类型（统计图/流程图/对比图）、"
-                "要显示的关键数字、版式风格、配色\n"
-                f"   - 风格：{image.color_scheme}\n"
-                "   - 如果段落没有具体数字，可以描述一个流程图或概念对比图，同样要有文字标注"
+                "   - 必须包含段落中出现的具体数字/百分比/对比数据\n"
+                "   - 描述要细，至少写 3-4 行英文\n"
+                f"   - 风格：{image.color_scheme}"
             ),
             "illustration": (
                 "配图描述要用英文，具体描述一幅与段落内容相关的插画场景，"
                 "包含主体、构图、色调、氛围。\n"
-                f"   风格偏向：{image.color_scheme}\n"
-                "   描述要细，至少 2-3 行英文"
+                f"   风格偏向：{image.color_scheme}"
             ),
             "scene": (
                 "配图描述要用英文，描述一个与段落内容相关的逼真场景。\n"
-                "   包含：场景中的人物/物体、光线、视角、氛围。\n"
-                f"   风格偏向：{image.color_scheme}\n"
-                "   描述要细，至少 2-3 行英文"
+                f"   风格偏向：{image.color_scheme}"
             ),
             "diagram": (
                 "配图描述要用英文，描述一张与段落内容相关的架构图或流程图。\n"
-                "   包含：各个节点/步骤的名称、连接关系、布局方式。\n"
-                f"   风格偏向：{image.color_scheme}\n"
-                "   描述要清晰，至少 2-3 行英文"
+                f"   风格偏向：{image.color_scheme}"
             ),
             "poster": (
                 "配图描述要用英文，描述一张**电影海报风格**的图片。\n"
-                "   要求：以该电影的官方海报为参考，包含片名（英文）、主要角色或标志性画面、"
-                "电影感构图、戏剧性光线。\n"
-                f"   风格：{image.color_scheme}\n"
-                "   描述要细，至少 2-3 行英文，明确写出电影英文名和关键视觉元素"
+                f"   风格：{image.color_scheme}"
             ),
         }
         return type_guide.get(image.image_type, type_guide["infographic"])
+
+    # ==================================================================
+    # 4. 批量图片 prompt 生成（独立于排版阶段）
+    # ==================================================================
+
+    @staticmethod
+    def build_image_prompts_system(image: ImagePreset) -> str:
+        """为批量图片 prompt 生成组装 system prompt。"""
+        type_desc = {
+            "infographic": "信息图（infographic），展示数据、对比、流程",
+            "illustration": "插画（illustration），概念性的扁平/3D 插图",
+            "scene": "场景图（scene），逼真的场景渲染",
+            "diagram": "架构图/流程图（diagram），清晰的结构展示",
+            "poster": "电影海报（poster），含片名、角色、电影感构图",
+        }
+        img_type = type_desc.get(image.image_type, type_desc["infographic"])
+
+        return (
+            "你是一位专业的配图描述生成器。你的任务是根据文章段落内容，"
+            "为每个段落生成一段英文配图描述（image prompt），用于 AI 图片生成。\n\n"
+            f"图片类型：{img_type}\n"
+            f"配色风格：{image.color_scheme}\n\n"
+            "要求：\n"
+            "1. 每段描述用英文，2-4 句话，具体描述画面内容、构图、配色\n"
+            "2. 如果段落含有具体数字/百分比，在图片中体现这些数据\n"
+            "3. 保持所有描述风格一致\n\n"
+            '以 JSON 格式输出：{"prompts": ["prompt1", "prompt2", ...]}\n'
+            "prompts 数组的长度必须与输入段落数量完全一致。"
+        )
+
+    @staticmethod
+    def build_image_prompts_user(paragraphs: list[str]) -> str:
+        """为批量图片 prompt 生成组装 user prompt。"""
+        parts = ["请为以下段落生成配图描述：\n"]
+        for i, text in enumerate(paragraphs):
+            parts.append(f"段落 {i + 1}：{text}")
+        return "\n".join(parts)

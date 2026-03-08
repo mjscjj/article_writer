@@ -1,6 +1,13 @@
+"""LLM 驱动的写作和润色实现。
+
+LLMWriter   — BaseWriter 的内置实现，调用 LLM 生成文章
+LLMPolisher — BasePolisher 的内置实现，调用 LLM 润色文章
+"""
+
 from __future__ import annotations
 
 from article_writer.config import ModelConfig
+from article_writer.interfaces.base import BasePolisher, BaseStyleAnalyzer, BaseWriter
 from article_writer.models.llm_client import LLMClient
 from article_writer.prompts import (
     ArticleSpec,
@@ -8,96 +15,76 @@ from article_writer.prompts import (
     PromptBuilder,
     WriterPreset,
 )
+from article_writer.registry import register_plugin
 from article_writer.schema import Article
 from article_writer.style.analyzer import StyleAnalyzer
 
 
-class ArticleGenerator:
-    """文章生成器：根据命题、素材和配置生成文章。
+def _split_title_and_content(text: str) -> tuple[str, str]:
+    text = text.strip()
+    lines = text.split("\n", 1)
+    title = lines[0].strip().lstrip("#").strip()
+    content = lines[1].strip() if len(lines) > 1 else ""
+    return title, content
 
-    支持两层提示词配置：
-    - core：系统核心约束（禁词、润色清单等），一般不改
-    - writer：作者身份预设，选一个或自定义
-    - spec：文章结构规格，选一个或自定义
 
-    使用方式::
+@register_plugin("writer", "llm")
+class LLMWriter(BaseWriter):
+    """LLM 驱动的文章写作器。
 
-        generator = ArticleGenerator()
-
-        article = generator.generate(
-            topic="你的命题",
-            search_data=["素材1", "素材2"],
-            model_config=config,
-            writer=WriterPreset.tech_blogger(),
-            spec=ArticleSpec.tech_deep_dive(),
-        )
+    Args:
+        config: 模型调用配置
+        writer_preset: 作者人设预设
+        core_prompts: 核心约束
     """
 
-    def generate(
+    def __init__(
+        self,
+        config: ModelConfig | None = None,
+        writer_preset: WriterPreset | None = None,
+        core_prompts: CorePrompts | None = None,
+    ) -> None:
+        self._config = config
+        self._writer_preset = writer_preset
+        self._core_prompts = core_prompts
+
+    def write(
         self,
         topic: str,
-        search_data: list[str],
-        model_config: ModelConfig,
+        search_data: list[str] | None = None,
         *,
-        core: CorePrompts | None = None,
-        writer: WriterPreset | None = None,
-        spec: ArticleSpec | None = None,
+        config: ModelConfig | None = None,
+        writer_preset: WriterPreset | None = None,
+        core_prompts: CorePrompts | None = None,
+        article_spec: ArticleSpec | None = None,
         style: str | list[str] | None = None,
-        polish: bool = True,
+        style_analyzer: BaseStyleAnalyzer | None = None,
+        **kwargs,
     ) -> Article:
-        """生成一篇完整文章。
+        cfg = config or self._config
+        if cfg is None:
+            raise ValueError("必须提供 ModelConfig")
 
-        Args:
-            topic: 文章命题
-            search_data: 参考素材列表
-            model_config: 模型调用配置
-            core: 核心提示词配置（默认使用 CorePrompts 内置默认值）
-            writer: 作者身份预设（默认使用 WriterPreset 默认值）
-            spec: 文章结构规格（默认使用 ArticleSpec 默认值）
-            style: 风格描述或历史文章列表（可选，追加到 system prompt）
-            polish: 是否执行润色阶段
+        writer = writer_preset or self._writer_preset or WriterPreset()
+        core = core_prompts or self._core_prompts or CorePrompts()
+        spec = article_spec or ArticleSpec()
+        llm = LLMClient(cfg)
 
-        Returns:
-            Article 对象，包含标题和正文。
-        """
-        if core is None:
-            core = CorePrompts()
-        if writer is None:
-            writer = WriterPreset()
-        if spec is None:
-            spec = ArticleSpec()
+        style_desc = ""
+        if style is not None:
+            analyzer = style_analyzer or StyleAnalyzer(llm)
+            style_desc = analyzer.resolve_style(style)
 
-        llm = LLMClient(model_config)
+        style_section = f"【写作风格要求】\n{style_desc}" if style_desc else ""
 
-        # ---- 风格分析（可选）----
-        analyzer = StyleAnalyzer(llm)
-        style_desc = analyzer.resolve_style(style)
-        style_section = (
-            f"【写作风格要求】\n{style_desc}" if style_desc else ""
-        )
-
-        # ---- 组装 prompt（通过 PromptBuilder 合并两层配置）----
         system_prompt = PromptBuilder.build_generation_system_prompt(
-            core=core,
-            writer=writer,
-            style_section=style_section,
+            core=core, writer=writer, style_section=style_section,
         )
         user_prompt = PromptBuilder.build_generation_user_prompt(
-            topic=topic,
-            search_data=search_data,
-            spec=spec,
+            topic=topic, search_data=search_data or [], spec=spec,
         )
 
-        # ---- 生成 ----
-        raw = llm.generate(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-        )
-
-        # ---- 润色 ----
-        if polish:
-            raw = self._polish(llm, raw, core=core, writer=writer)
-
+        raw = llm.generate(prompt=user_prompt, system_prompt=system_prompt)
         title, content = _split_title_and_content(raw)
 
         return Article(
@@ -107,27 +94,57 @@ class ArticleGenerator:
             style_description=style_desc,
         )
 
-    @staticmethod
-    def _polish(
-        llm: LLMClient,
-        raw_article: str,
+
+@register_plugin("polisher", "llm")
+class LLMPolisher(BasePolisher):
+    """LLM 驱动的文章润色器。
+
+    Args:
+        config: 模型调用配置
+        writer_preset: 作者人设预设（影响润色风格）
+        core_prompts: 核心约束（润色清单、禁词）
+    """
+
+    def __init__(
+        self,
+        config: ModelConfig | None = None,
+        writer_preset: WriterPreset | None = None,
+        core_prompts: CorePrompts | None = None,
+    ) -> None:
+        self._config = config
+        self._writer_preset = writer_preset
+        self._core_prompts = core_prompts
+
+    def polish(
+        self,
+        article: Article,
         *,
-        core: CorePrompts,
-        writer: WriterPreset,
-    ) -> str:
-        """对生成的文章做去 AI 味润色。"""
-        return llm.generate(
+        config: ModelConfig | None = None,
+        writer_preset: WriterPreset | None = None,
+        core_prompts: CorePrompts | None = None,
+        article_spec: ArticleSpec | None = None,
+        **kwargs,
+    ) -> Article:
+        cfg = config or self._config
+        if cfg is None:
+            raise ValueError("必须提供 ModelConfig")
+
+        writer = writer_preset or self._writer_preset or WriterPreset()
+        core = core_prompts or self._core_prompts or CorePrompts()
+        llm = LLMClient(cfg)
+
+        raw_text = f"{article.title}\n\n{article.content}"
+        polished = llm.generate(
             prompt=PromptBuilder.build_polish_user_prompt(
-                core=core, writer=writer, content=raw_article,
+                core=core, writer=writer, content=raw_text, article_spec=article_spec,
             ),
             system_prompt=PromptBuilder.build_polish_system_prompt(writer),
         )
 
-
-def _split_title_and_content(text: str) -> tuple[str, str]:
-    """将 LLM 输出拆分为标题和正文。"""
-    text = text.strip()
-    lines = text.split("\n", 1)
-    title = lines[0].strip().lstrip("#").strip()
-    content = lines[1].strip() if len(lines) > 1 else ""
-    return title, content
+        title, content = _split_title_and_content(polished)
+        return Article(
+            topic=article.topic,
+            title=title or article.title,
+            content=content or article.content,
+            style_description=article.style_description,
+        )

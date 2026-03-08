@@ -131,13 +131,16 @@ class ArticleSpec:
         )
 
     @classmethod
-    def list_recommendations(cls, item_count: int = 9) -> ArticleSpec:
+    def list_recommendations(cls, item_count: int = 9, item_name: str = "推荐项") -> ArticleSpec:
         """📋 清单推荐文预设（如九部电影、十本书）。
 
         每项一小节，场景开头，行动号召结尾。
         适合：电影推荐、书单、好物清单、节日专题。
+
+        Args:
+            item_count: 推荐项数量，默认 9
+            item_name: 推荐项类型名称，如"电影"、"书"、"好物"，用于生成更匹配的指令
         """
-        # 每项约 250-400 字
         word_min = item_count * 250
         word_max = item_count * 400
         return cls(
@@ -150,10 +153,57 @@ class ArticleSpec:
             must_cite_data=False,
             min_data_citations=0,
             extra_instructions=(
-                "每个小节对应一个推荐项，需包含："
-                "片名/书名等、一句话推荐理由、适合年龄或场景、"
-                "看完/读完可以聊什么（母女可聊的话题）。"
-                "每个小节配一张该项目的官方海报/封面风格图。"
+                f"每个小节对应一个{item_name}推荐项，需包含："
+                f"名称、一句话核心推荐理由、适合的人群或场景、"
+                f"看完/读完/使用后可以获得什么收获。"
+                f"每个小节聚焦一个推荐项，语气真诚，不罗列无用信息。"
+            ),
+        )
+
+    @classmethod
+    def narrative_story(cls) -> ArticleSpec:
+        """📖 叙事故事文预设。
+
+        1500-2000 字，3-4 个叙事段落，场景开头，情感收尾。
+        适合：人物故事、情感叙事、节日专题、温情分享。
+        """
+        return cls(
+            name="叙事故事文",
+            word_count_min=1500,
+            word_count_max=2000,
+            section_count=4,
+            opening_style="scene",
+            closing_style="question",
+            must_cite_data=False,
+            min_data_citations=0,
+            extra_instructions=(
+                "文章要有明确的叙事弧线（开场 → 冲突/转折 → 高潮 → 收束）；"
+                "用具体细节和对话推动故事，不要空泛议论；"
+                "结尾要有情感共鸣，留给读者思考空间，不要强行总结"
+            ),
+        )
+
+    @classmethod
+    def opinion_essay(cls) -> ArticleSpec:
+        """💬 观点评论文预设。
+
+        1200-1800 字，3 个论证节，数据或反常识开头，悬念结尾。
+        适合：社会现象评论、热点解读、反共识观点、行业判断。
+        """
+        return cls(
+            name="观点评论文",
+            word_count_min=1200,
+            word_count_max=1800,
+            section_count=3,
+            opening_style="data",
+            closing_style="cliffhanger",
+            must_cite_data=True,
+            min_data_citations=3,
+            extra_instructions=(
+                "文章要有一个清晰的中心论点，开头即亮明立场；"
+                "每节用一个论据（数据/案例/对比）支撑核心观点；"
+                "承认反方观点的合理之处，再论证自己的立场更充分；"
+                "结尾留一个开放性问题，激发读者继续思考"
             ),
         )
 

@@ -8,7 +8,6 @@ import time
 from openai import OpenAI
 
 from article_writer.config import ModelConfig
-from article_writer.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ _MAX_RETRIES = 2
 _RETRY_BACKOFF_BASE = 1.5
 
 
-class LLMClient(BaseLLM):
+class LLMClient:
     """基于 OpenAI 兼容 API 的 LLM 客户端。
 
     通过 base_url 适配 OpenRouter、自建服务等任意 OpenAI 兼容 provider。
@@ -49,7 +48,14 @@ class LLMClient(BaseLLM):
                     temperature=temperature or self._config.temperature,
                     max_tokens=max_tokens or self._config.max_tokens,
                 )
-                return resp.choices[0].message.content or ""
+                content = resp.choices[0].message.content or ""
+                if resp.choices[0].finish_reason == "length":
+                    logger.warning(
+                        "generate() 输出被截断 (finish_reason=length), "
+                        "当前 max_tokens=%d，可在 ModelConfig 中调大",
+                        max_tokens or self._config.max_tokens,
+                    )
+                return content
             except Exception as exc:
                 if attempt < _MAX_RETRIES:
                     wait = _RETRY_BACKOFF_BASE ** (attempt + 1)
@@ -114,25 +120,53 @@ class LLMClient(BaseLLM):
         temperature: float,
         max_tokens: int,
     ) -> str | None:
-        """尝试使用 response_format=json_object，不支持则返回 None。"""
-        try:
-            resp = self._client.chat.completions.create(
-                model=self._config.llm_model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                response_format={"type": "json_object"},
-            )
-            return resp.choices[0].message.content or ""
-        except Exception as exc:
-            logger.debug("Provider 不支持 response_format=json_object, 回退: %s", exc)
-            return None
+        """尝试使用 response_format=json_object，不支持则返回 None。
+
+        遇到 finish_reason=length（输出被截断）时自动翻倍 max_tokens 重试，
+        最多扩容 2 次（例如 8192 → 16384 → 32768），仍截断则返回 None 回退。
+        """
+        tokens = max_tokens
+        for _ in range(3):
+            try:
+                resp = self._client.chat.completions.create(
+                    model=self._config.llm_model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=tokens,
+                    response_format={"type": "json_object"},
+                )
+                choice = resp.choices[0]
+                if choice.finish_reason == "length":
+                    tokens = min(tokens * 2, 65536)
+                    logger.warning(
+                        "JSON 输出被截断 (finish_reason=length), 扩容至 %d tokens 重试",
+                        tokens,
+                    )
+                    continue
+                return choice.message.content or ""
+            except Exception as exc:
+                logger.debug("Provider 不支持 response_format=json_object, 回退: %s", exc)
+                return None
+        # 3 次扩容后仍截断，回退到普通 generate
+        logger.warning("JSON 输出多次扩容后仍截断，回退到普通 generate")
+        return None
 
 
 def _parse_json(text: str) -> dict:
-    """尝试从 LLM 输出中解析 JSON，容忍 markdown 代码块包裹。"""
+    """尝试从 LLM 输出中解析 JSON，容忍 markdown 代码块包裹和部分字段值误包裹。"""
     text = text.strip()
     fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
     if fence_match:
         text = fence_match.group(1).strip()
-    return json.loads(text)
+    result = json.loads(text)
+    # Kimi 偶尔把数组字段值输出为字符串，尝试二次解析
+    if isinstance(result, dict):
+        for key, val in result.items():
+            if isinstance(val, str):
+                stripped = val.strip()
+                if stripped.startswith("[") or stripped.startswith("{"):
+                    try:
+                        result[key] = json.loads(stripped)
+                    except json.JSONDecodeError:
+                        pass
+    return result

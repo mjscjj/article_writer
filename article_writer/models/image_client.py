@@ -8,7 +8,7 @@ import httpx
 from openai import OpenAI
 
 from article_writer.config import ModelConfig
-from article_writer.models.base import BaseImageGen
+from article_writer.interfaces.base import BaseImageGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ _MAX_RETRIES = 2
 _RETRY_BACKOFF_BASE = 1.5
 
 
-class ImageClient(BaseImageGen):
+class ImageClient(BaseImageGenerator):
     """图片生成客户端。
 
     支持两种调用方式：
@@ -39,10 +39,49 @@ class ImageClient(BaseImageGen):
     ) -> str:
         """生成图片，返回 base64 data URI 或 URL。"""
         if self._config.image_provider == "openrouter":
-            return self._generate_via_openrouter(prompt)
+            return self._generate_via_openrouter(prompt, size=size)
         return self._generate_via_openai(prompt, size, style)
 
-    def _generate_via_openrouter(self, prompt: str) -> str:
+    @staticmethod
+    def _size_to_aspect_ratio(size: str | None) -> str | None:
+        """将 size 字符串转成 OpenRouter image_config.aspect_ratio 格式。
+
+        支持输入格式：
+          - "4:3"、"16:9" 等比例字符串 → 直接透传
+          - "1024x768"、"1184x864" 等 WxH 字符串 → 计算最接近的比例
+        """
+        if not size:
+            return None
+
+        # 已经是比例格式，直接返回
+        if ":" in size:
+            return size
+
+        # WxH 格式
+        if "x" in size.lower():
+            try:
+                w, h = [int(v) for v in size.lower().split("x")]
+            except ValueError:
+                return None
+            ratio = w / h
+            # 映射到 OpenRouter 支持的比例
+            candidates = {
+                "21:9": 21 / 9,
+                "16:9": 16 / 9,
+                "4:3": 4 / 3,
+                "3:2": 3 / 2,
+                "1:1": 1.0,
+                "2:3": 2 / 3,
+                "3:4": 3 / 4,
+                "9:16": 9 / 16,
+                "4:5": 4 / 5,
+                "5:4": 5 / 4,
+            }
+            return min(candidates, key=lambda k: abs(candidates[k] - ratio))
+
+        return None
+
+    def _generate_via_openrouter(self, prompt: str, size: str | None = None) -> str:
         """通过 OpenRouter chat/completions + modalities 生成图片。
 
         适用于 Nano Banana 2（google/gemini-3.1-flash-image-preview）等
@@ -58,6 +97,11 @@ class ImageClient(BaseImageGen):
             "messages": [{"role": "user", "content": prompt}],
             "modalities": ["image", "text"],
         }
+
+        aspect_ratio = self._size_to_aspect_ratio(size or self._config.image_size)
+        if aspect_ratio:
+            payload["image_config"] = {"aspect_ratio": aspect_ratio}
+            logger.debug("图片生成使用 aspect_ratio=%s", aspect_ratio)
 
         for attempt in range(_MAX_RETRIES + 1):
             try:

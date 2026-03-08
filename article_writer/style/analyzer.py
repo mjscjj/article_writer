@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from article_writer.models.base import BaseLLM
+from article_writer.models.llm_client import LLMClient
 from article_writer.prompts.core_prompts import CorePrompts
 
 _STYLE_ANALYSIS_PROMPT = """\
@@ -33,7 +33,7 @@ _STYLE_ANALYSIS_PROMPT = """\
 class StyleAnalyzer:
     """分析历史文章的写作风格，生成可复用的风格描述 prompt。"""
 
-    def __init__(self, llm: BaseLLM) -> None:
+    def __init__(self, llm: LLMClient) -> None:
         self._llm = llm
         self._cache: dict[int, str] = {}
 

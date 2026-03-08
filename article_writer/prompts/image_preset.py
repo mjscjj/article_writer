@@ -60,7 +60,9 @@ class ImagePreset:
     quality_suffix: str = (
         "High quality, tall vertical format suitable for mobile reading. "
         "All text clearly legible, large font size. "
-        "Rich in detail. No watermarks, no logos. Sharp 4K resolution."
+        "Rich in detail. No watermarks, no logos. Sharp 4K resolution. "
+        "IMPORTANT: Any text, labels, titles and annotations in the image "
+        "MUST be in Simplified Chinese. Do NOT use English text in the image."
     )
 
     cover_style: str = (
@@ -93,7 +95,9 @@ class ImagePreset:
                 "High quality, tall vertical format suitable for mobile reading. "
                 "All text clearly legible, large font size. "
                 "Rich in detail — multiple data points, labels, and visual elements. "
-                "No watermarks, no logos. Sharp 4K resolution."
+                "No watermarks, no logos. Sharp 4K resolution. "
+                "IMPORTANT: Any text, labels, titles and annotations in the image "
+                "MUST be in Simplified Chinese. Do NOT use English text in the image."
             ),
             cover_style=(
                 "Professional tech magazine cover with bold modern typography. "
@@ -122,7 +126,9 @@ class ImagePreset:
             quality_suffix=(
                 "High quality illustration, warm and inviting atmosphere. "
                 "Balanced composition with generous negative space. "
-                "No watermarks, no logos. Clean vector-style rendering."
+                "No watermarks, no logos. Clean vector-style rendering. "
+                "IMPORTANT: Any text, labels, titles and annotations in the image "
+                "MUST be in Simplified Chinese. Do NOT use English text in the image."
             ),
             cover_style=(
                 "Elegant magazine-style cover with warm tones. "
@@ -151,7 +157,9 @@ class ImagePreset:
             quality_suffix=(
                 "High quality, minimalist design. "
                 "Crisp lines, precise typography, generous whitespace. "
-                "No watermarks, no logos. Professional and clean."
+                "No watermarks, no logos. Professional and clean. "
+                "IMPORTANT: Any text, labels, titles and annotations in the image "
+                "MUST be in Simplified Chinese. Do NOT use English text in the image."
             ),
             cover_style=(
                 "Minimalist cover with large bold title on clean background. "
@@ -181,7 +189,9 @@ class ImagePreset:
                 "High quality movie poster style image. "
                 "Vertical format, theatrical composition. "
                 "Film title and key visual elements clearly visible. "
-                "No watermarks, no logos. Professional cinematic look."
+                "No watermarks, no logos. Professional cinematic look. "
+                "IMPORTANT: Any text, labels, titles and annotations in the image "
+                "MUST be in Simplified Chinese. Do NOT use English text in the image."
             ),
             cover_style=(
                 "Cinematic magazine cover celebrating women and film. "

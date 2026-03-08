@@ -1,14 +1,24 @@
+"""LLM 驱动的排版实现（两步排版架构：Step 1）。
+
+LLMTypesetter — 单次 LLM 调用完成所有排版决策：
+  - 段落划分
+  - 段落类型（paragraph / heading / quote / highlight）
+  - 配图位置（needs_image: true/false，Step 1.5 会另外生成高质量图片 prompt）
+  - emoji 建议（per-paragraph）
+"""
+
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from pydantic import ValidationError
 
 from article_writer.config import ModelConfig
-from article_writer.models.image_client import ImageClient
+from article_writer.interfaces.base import BaseTypesetter
 from article_writer.models.llm_client import LLMClient
-from article_writer.prompts import CorePrompts, ImagePreset, PromptBuilder
+from article_writer.options import ArticleStyle
+from article_writer.prompts import CorePrompts
+from article_writer.registry import register_plugin
 from article_writer.schema import Article, Paragraph, TypesetArticle, TypesetLLMResponse
 
 logger = logging.getLogger(__name__)
@@ -17,208 +27,205 @@ _IMAGE_COUNT_HINTS = {
     "few": "整篇文章最多配 1-2 张图，只在最关键的段落配图",
     "moderate": "整篇文章配 2-4 张图，在重要的转折或核心论点处配图",
     "rich": "整篇文章配 4-6 张图，让文章图文并茂",
-    "all": "每个小节/每个推荐项都配一张图，清单类文章（如九部电影）每项必配",
+    "all": "每个小节/每个推荐项都配一张图",
 }
 
-_TYPESET_SYSTEM_PROMPT = """\
-你是一位专业的微信公众号排版编辑。你的任务是将一篇文章进行合理的段落划分，并决定哪些段落需要配图。
+# ------------------------------------------------------------------
+# 系统 prompt 模板
+# ------------------------------------------------------------------
 
-排版原则：
+_SYSTEM_NO_IMAGE = """\
+你是一位专业的微信公众号排版编辑。请将文章进行段落划分并输出结构化排版数据。
+
+【排版原则】
 1. 保留原文所有内容，不得增删改原文
 2. 合理划分段落，每段聚焦一个主题或论点，控制在 50-200 字
-3. 识别文中的标题和小标题（包括 Markdown 格式的 ## 和 ###），标记 is_heading=true 并设置 heading_level (1=大标题, 2=小标题, 3=三级标题)
-4. 配图策略：{image_hint}
-5. {image_guide}
-
-配图位置规则：
-{typeset_rules}
-
-你必须以 JSON 格式输出，schema 如下：
+3. 为每段选择合适的类型（type）：
+   - heading：文章标题或小节标题（原文中 ## / ### 开头的行，或明显的节标题）
+   - paragraph：普通正文段落
+   - quote：引用、警言、格言等值得突出的语句
+   - highlight：关键数据、核心结论等需要高亮显示的短句
+4. 标题需设置 level：1=文章主标题，2=章节标题，3=小节标题；非标题为 0
+5. emoji：为每段/标题建议 1 个相关 emoji，普通段落可为空字符串
+{style_hint_section}
+【输出 JSON schema】
 {{
   "paragraphs": [
     {{
-      "text": "段落文本",
-      "is_heading": false,
-      "heading_level": 0,
+      "text": "段落原文",
+      "type": "paragraph",
+      "level": 0,
       "needs_image": false,
-      "image_description": ""
+      "image_description": "",
+      "emoji": ""
     }}
   ]
 }}
 
-下面是一个排版示例供参考：
-
-【输入文本】
+【示例】
+输入：
 ## AI 正在改变写作方式
-过去一年，AI 写作工具用户增长了 300%。越来越多的内容创作者开始依赖 AI 来提升效率。
-但这并不意味着人类作者将被取代。AI 擅长的是信息整合和初稿生成，而人类的优势在于情感表达和价值判断。
+过去一年，AI 写作工具用户增长了 300%。
 
-【输出】
+输出：
 {{
   "paragraphs": [
-    {{"text": "## AI 正在改变写作方式", "is_heading": true, "heading_level": 2, "needs_image": false, "image_description": ""}},
-    {{"text": "过去一年，AI 写作工具用户增长了 300%。越来越多的内容创作者开始依赖 AI 来提升效率。", "is_heading": false, "heading_level": 0, "needs_image": true, "image_description": "A tall vertical tech infographic on a dark background with neon blue accents. Top section shows a bold stat: '300%' in giant glowing numbers with label 'AI Writing Tool User Growth (2024-2025)'. Below, a bar chart comparing 2023 vs 2024 adoption rates. Bottom section shows 3 icons representing content creators with upward trend arrows. Bold sans-serif typography, cyberpunk color scheme: deep navy background, electric blue and violet data elements, white text labels. Clean data visualization style."}},
-    {{"text": "但这并不意味着人类作者将被取代。AI 擅长的是信息整合和初稿生成，而人类的优势在于情感表达和价值判断。", "is_heading": false, "heading_level": 0, "needs_image": false, "image_description": ""}}
+    {{"text": "## AI 正在改变写作方式", "type": "heading", "level": 2, "needs_image": false, "image_description": "", "emoji": "🤖"}},
+    {{"text": "过去一年，AI 写作工具用户增长了 300%。", "type": "paragraph", "level": 0, "needs_image": false, "image_description": "", "emoji": "📈"}}
   ]
 }}"""
 
-_TYPESET_USER_PROMPT = """\
-请对以下文章进行排版，划分段落并决定配图位置。
+_SYSTEM_WITH_IMAGE = """\
+你是一位专业的微信公众号排版编辑。请将文章进行段落划分并输出完整的排版决策数据。
 
-{image_style_section}
+【排版原则】
+1. 保留原文所有内容，不得增删改原文
+2. 合理划分段落，每段聚焦一个主题或论点，控制在 50-200 字
+3. 为每段选择合适的类型（type）：
+   - heading：文章标题或小节标题（原文中 ## / ### 开头的行，或明显的节标题）
+   - paragraph：普通正文段落
+   - quote：引用、警言、格言等值得突出的语句
+   - highlight：关键数据、核心结论等需要高亮显示的短句
+4. 标题需设置 level：1=文章主标题，2=章节标题，3=小节标题；非标题为 0
+5. 配图策略：{image_hint}
+6. 配图位置规则：
+{typeset_rules}
+7. needs_image=true 时，image_description 留空即可，图片 prompt 由后续专职模块生成
+8. emoji：为每段/标题建议 1 个相关 emoji，普通段落可为空字符串
+{style_hint_section}
+【输出 JSON schema】
+{{
+  "paragraphs": [
+    {{
+      "text": "段落原文",
+      "type": "paragraph",
+      "level": 0,
+      "needs_image": false,
+      "image_description": "",
+      "emoji": ""
+    }}
+  ]
+}}
+
+【示例】
+输入：
+## AI 正在改变写作方式
+过去一年，AI 写作工具用户增长了 300%。越来越多的内容创作者开始依赖 AI 来提升效率。
+
+输出：
+{{
+  "paragraphs": [
+    {{"text": "## AI 正在改变写作方式", "type": "heading", "level": 2, "needs_image": false, "image_description": "", "emoji": "🤖"}},
+    {{"text": "过去一年，AI 写作工具用户增长了 300%。越来越多的内容创作者开始依赖 AI 来提升效率。", "type": "paragraph", "level": 0, "needs_image": true, "image_description": "", "emoji": "📈"}}
+  ]
+}}"""
+
+_USER_PROMPT = """\
+请对以下文章进行排版{image_suffix}，输出 JSON。
+
+【文章标题】{title}
 
 【文章内容】
 {content}"""
 
 
-class Typesetter:
-    """排版器：LLM 驱动的段落划分 + 配图决策 + 图片生成。
+@register_plugin("typesetter", "llm")
+class LLMTypesetter(BaseTypesetter):
+    """LLM 驱动的排版器（Step 1）。
 
-    支持通过 ImagePreset 定制配图风格，通过 CorePrompts 定制排版规则。
-
-    使用方式::
-
-        typesetter = Typesetter()
-        result = typesetter.typeset(
-            article=article,
-            model_config=config,
-            image=ImagePreset.cyberpunk_infographic(),
-        )
+    单次 LLM 调用完成：段落划分、类型标注、emoji 建议、配图位置决策（needs_image）。
+    图片 prompt 由 Step 1.5 ImagePrompter 专门生成，不在此处处理。
     """
+
+    def __init__(
+        self,
+        config: ModelConfig | None = None,
+        core_prompts: CorePrompts | None = None,
+    ) -> None:
+        self._config = config
+        self._core_prompts = core_prompts
 
     def typeset(
         self,
         article: Article,
-        model_config: ModelConfig,
         *,
-        core: CorePrompts | None = None,
-        image: ImagePreset | None = None,
-        image_style: str | None = None,
-        image_count_hint: str = "moderate",
+        config: ModelConfig | None = None,
+        core_prompts: CorePrompts | None = None,
+        image_count: str = "moderate",
+        enable_images: bool = True,
+        article_style: ArticleStyle | None = None,
+        **kwargs,
     ) -> TypesetArticle:
-        """对文章执行排版、配图决策和图片生成。
+        cfg = config or self._config
+        if cfg is None:
+            raise ValueError("必须提供 ModelConfig")
 
-        Args:
-            article: 待排版的文章
-            model_config: 模型配置
-            core: 核心配置（排版规则等），默认使用内置默认值
-            image: 配图风格预设，默认使用 ImagePreset 默认值
-            image_style: 兼容旧版的配图风格字符串（优先级低于 image 预设）
-            image_count_hint: 配图数量提示 "few"/"moderate"/"rich"
-        """
-        if core is None:
-            core = CorePrompts()
-        if image is None:
-            image = ImagePreset()
+        core = core_prompts or self._core_prompts or CorePrompts()
+        llm = LLMClient(cfg)
 
-        llm = LLMClient(model_config)
+        # 构建风格提示词段落（非空时加入 prompt）
+        style_hint = article_style.description if article_style and article_style.description else ""
+        style_hint_section = f"\n【排版风格要求】\n{style_hint}\n" if style_hint else ""
 
-        # --- 排版规则（来自 core）----
-        typeset_rules = "\n".join(f"- {r}" for r in core.typeset_rules)
+        if enable_images:
+            typeset_rules = "\n".join(f"   - {r}" for r in core.typeset_rules)
+            image_hint = _IMAGE_COUNT_HINTS.get(image_count, _IMAGE_COUNT_HINTS["moderate"])
+            system_prompt = _SYSTEM_WITH_IMAGE.format(
+                image_hint=image_hint,
+                typeset_rules=typeset_rules,
+                style_hint_section=style_hint_section,
+            )
+            image_suffix = "（含配图决策和图片 prompt）"
+        else:
+            system_prompt = _SYSTEM_NO_IMAGE.format(
+                style_hint_section=style_hint_section,
+            )
+            image_suffix = ""
 
-        # --- 配图描述指引（来自 image preset）----
-        image_guide = PromptBuilder.build_typeset_image_guide(image)
-
-        # --- 组装 system prompt ---
-        image_hint = _IMAGE_COUNT_HINTS.get(image_count_hint, _IMAGE_COUNT_HINTS["moderate"])
-        system_prompt = _TYPESET_SYSTEM_PROMPT.format(
-            image_hint=image_hint,
-            image_guide=image_guide,
-            typeset_rules=typeset_rules,
-        )
-
-        image_style_section = (
-            f"【配图风格要求】\n{image_style}" if image_style else ""
-        )
-        user_prompt = _TYPESET_USER_PROMPT.format(
-            image_style_section=image_style_section,
+        user_prompt = _USER_PROMPT.format(
+            image_suffix=image_suffix,
+            title=article.title,
             content=article.content,
         )
 
-        # --- LLM 排版 + 重试 ---
-        _MAX_TYPESET_RETRIES = 2
+        _MAX_RETRIES = 3
         typeset_resp: TypesetLLMResponse | None = None
         last_err: Exception | None = None
-        for attempt in range(_MAX_TYPESET_RETRIES + 1):
-            raw_json = llm.generate_json(
-                prompt=user_prompt,
-                system_prompt=system_prompt,
-                max_tokens=model_config.max_tokens,
-            )
+        for attempt in range(_MAX_RETRIES + 1):
             try:
+                raw_json = llm.generate_json(
+                    prompt=user_prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=cfg.max_tokens,
+                )
                 typeset_resp = TypesetLLMResponse.model_validate(raw_json)
                 break
-            except ValidationError as exc:
+            except (ValidationError, Exception) as exc:
                 last_err = exc
-                logger.warning(
-                    "排版 JSON schema 校验失败 (第 %d 次), 重试: %s",
-                    attempt + 1, exc,
-                )
+                logger.warning("排版失败 (第 %d 次): %s", attempt + 1, exc)
 
         if typeset_resp is None:
             raise last_err  # type: ignore[misc]
 
-        # --- 并发生成配图（使用 PromptBuilder）---
-        image_client = ImageClient(model_config)
-
-        image_tasks: dict[int, str] = {}
-        for idx, item in enumerate(typeset_resp.paragraphs):
-            if item.needs_image and item.image_description:
-                image_tasks[idx] = PromptBuilder.build_image_prompt(
-                    item.image_description, image,
-                )
-
-        image_results: dict[int, str] = {}
-        if image_tasks:
-            with ThreadPoolExecutor(max_workers=min(len(image_tasks), 4)) as pool:
-                futures = {
-                    pool.submit(
-                        image_client.generate_image,
-                        prompt=prompt,
-                        size=model_config.image_size,
-                    ): idx
-                    for idx, prompt in image_tasks.items()
-                }
-                for future in as_completed(futures):
-                    idx = futures[future]
-                    try:
-                        image_results[idx] = future.result()
-                    except Exception as exc:
-                        logger.warning("段落 %d 配图生成失败: %s", idx, exc)
-                        image_results[idx] = ""
-
         paragraphs: list[Paragraph] = []
-        for idx, item in enumerate(typeset_resp.paragraphs):
+        for item in typeset_resp.paragraphs:
+            p_type = item.type if item.type in ("heading", "paragraph", "quote", "highlight") else "paragraph"
+            is_heading = p_type == "heading"
             paragraphs.append(
                 Paragraph(
                     text=item.text,
-                    needs_image=item.needs_image,
-                    image_prompt=image_tasks.get(idx, ""),
-                    image_url=image_results.get(idx, ""),
-                    is_heading=item.is_heading,
-                    heading_level=item.heading_level,
+                    type=p_type,
+                    needs_image=item.needs_image if enable_images else False,
+                    image_prompt=item.image_description if enable_images else "",
+                    image_url="",
+                    is_heading=is_heading,
+                    heading_level=item.level,
+                    emoji=item.emoji,
                 )
             )
-
-        # --- 生成封面图 ---
-        cover_image_url = ""
-        summary = article.content[:150]
-        cover_prompt = PromptBuilder.build_image_prompt(
-            f"Cover image representing: {summary}",
-            image,
-            is_cover=True,
-            title_text=article.title,
-        )
-        try:
-            cover_image_url = image_client.generate_image(
-                prompt=cover_prompt,
-                size=model_config.image_size,
-            )
-        except Exception as exc:
-            logger.warning("封面图生成失败: %s", exc)
 
         return TypesetArticle(
             title=article.title,
             paragraphs=paragraphs,
-            cover_image_url=cover_image_url,
+            cover_image_url="",
         )

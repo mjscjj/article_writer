@@ -22,7 +22,7 @@ class ModelConfig(BaseModel):
         description="API key（LLM 和图片生成共用）",
     )
     llm_model: str = Field(
-        default="moonshotai/kimi-k2.5",
+        default="qwen/qwen3.5-plus-02-15",
         description="用于文本生成的模型名称",
     )
     image_model: str = Field(
@@ -34,7 +34,7 @@ class ModelConfig(BaseModel):
         description="图片生成调用方式：'openrouter'（chat/completions）或 'openai'（images/generations）",
     )
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-    max_tokens: int = Field(default=4096, gt=0)
+    max_tokens: int = Field(default=32768, gt=0)
 
     image_size: str = Field(
         default="1024x1024",

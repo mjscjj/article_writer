@@ -34,6 +34,8 @@ _DEFAULT_FORBIDDEN_WORDS: list[str] = [
     "值得注意的是", "需要指出的是",
     # ---- 呆板过渡 ----
     "与此同时",
+    # ---- 夸张描述 ----
+    "凌晨三点",
 ]
 
 _DEFAULT_FORBIDDEN_PATTERNS: list[str] = [
@@ -41,6 +43,7 @@ _DEFAULT_FORBIDDEN_PATTERNS: list[str] = [
     "随着…的快速发展，…变得越来越……",
     "总的来说，本文从…角度分析了……",
     "希望本文对大家有所帮助",
+    "凌晨三点，屏幕蓝光刺得眼睛生疼……（禁止用夸张时间+感官描写开头）",
 ]
 
 _DEFAULT_POLISH_CHECKLIST: list[str] = [
@@ -67,6 +70,7 @@ _DEFAULT_POLISH_CHECKLIST: list[str] = [
         "如果是，必须改写：换成一个让人继续想的反问、一个悬念、或作者自己还没搞定的困惑"
     ),
     "绝对禁词检查：扫描全文，把所有禁词删掉或替换为更口语化的表达",
+    "检查夸张描述：如有「凌晨三点」「深夜两点」等夸张时间+感官描写开头，改为更自然、克制的场景引入",
 ]
 
 _DEFAULT_TYPESET_RULES: list[str] = [
