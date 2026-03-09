@@ -227,8 +227,8 @@ class TypesetPipeline:
 
         user_images = self._normalize_user_images(opts.images, typeset_article)
 
-        # 图片尺寸：TypesetOptions.image_size > ImagePreset.aspect_ratio
-        effective_size = opts.image_size or image_preset.aspect_ratio or "3:4"
+        effective_body_size = opts.body_image_size or image_preset.aspect_ratio or "3:4"
+        effective_cover_size = opts.cover_image_size or "16:9"
 
         ai_tasks: dict[int, str] = {}
         for idx, para in enumerate(typeset_article.paragraphs):
@@ -237,12 +237,12 @@ class TypesetPipeline:
                 para.needs_image = True
             elif opts.enable_images and para.needs_image and para.image_prompt and self.image_generator:
                 ai_tasks[idx] = PromptBuilder.build_image_prompt(
-                    para.image_prompt, image_preset, aspect_ratio=effective_size,
+                    para.image_prompt, image_preset, aspect_ratio=effective_body_size,
                 )
 
         if ai_tasks and self.image_generator:
-            logger.info("Step2: 并发生成 %d 张配图（尺寸=%s）...", len(ai_tasks), effective_size)
-            ai_results = self._concurrent_generate(ai_tasks, effective_size)
+            logger.info("Step2: 并发生成 %d 张配图（正文比例=%s）...", len(ai_tasks), effective_body_size)
+            ai_results = self._concurrent_generate(ai_tasks, effective_body_size)
             for idx, url in ai_results.items():
                 typeset_article.paragraphs[idx].image_url = url
 
@@ -252,10 +252,10 @@ class TypesetPipeline:
             if image_prompter_result and image_prompter_result.cover_prompt:
                 cover_prompt = PromptBuilder.build_image_prompt(
                     image_prompter_result.cover_prompt,
-                    image_preset,
+                    None,
                     is_cover=True,
                     title_text=source_article.title,
-                    aspect_ratio=effective_size,
+                    aspect_ratio=effective_cover_size,
                 )
                 logger.info(
                     "封面使用 Step1.5 高质量 prompt: 主旨=%s",
@@ -265,14 +265,14 @@ class TypesetPipeline:
                 summary = source_article.content[:150]
                 cover_prompt = PromptBuilder.build_image_prompt(
                     f"Cover image representing: {summary}",
-                    image_preset,
+                    None,
                     is_cover=True,
                     title_text=source_article.title,
-                    aspect_ratio=effective_size,
+                    aspect_ratio=effective_cover_size,
                 )
             try:
                 typeset_article.cover_image_url = self.image_generator.generate_image(
-                    prompt=cover_prompt, size=effective_size,
+                    prompt=cover_prompt, size=effective_cover_size,
                 )
                 logger.info("封面图生成完成")
             except Exception as exc:

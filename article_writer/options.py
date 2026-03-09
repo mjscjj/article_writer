@@ -435,7 +435,7 @@ class TypesetOptions:
         TypesetOptions(
             enable_images=True,
             image_count="few",
-            image_size="4:3",
+            body_image_size="4:3",
             article_style=ArticleStyle.lifestyle(),
         )
     """
@@ -457,7 +457,7 @@ class TypesetOptions:
     """
 
     image_preset: ImagePreset | None = None
-    """配图风格预设，控制图片的类型、配色、质量要求。
+    """正文配图风格预设，控制正文图片的类型、配色、质量要求。
     - None（默认）：使用 ImagePreset 默认值（赛博朋克信息图风格）。
     - 内置预设：
       - ImagePreset.cyberpunk_infographic()  暗色+霓虹，科技/AI 类
@@ -474,17 +474,14 @@ class TypesetOptions:
     - "all"：每个小节都配图，适合电影推荐、产品清单等列表类文章
     """
 
-    image_size: str | None = None
-    """图片比例/尺寸（唯一的尺寸控制入口）。
-    同时控制 prompt 中的比例约束和图片生成 API 的实际尺寸参数。
+    cover_image_size: str | None = None
+    """封面图比例/尺寸。
+    None 表示回退到调用方或平台默认值。
+    """
 
-    优先级：
-      TypesetOptions.image_size（本字段） > ImagePreset.aspect_ratio
-
-    - None（默认）：回退到 ImagePreset.aspect_ratio（如不设则为 "3:4" 竖版）
-    - 比例格式（推荐）："4:3" / "16:9" / "9:16" / "3:4" / "1:1"
-    - 像素格式："1024x768"（自动映射到最近比例）
-    支持的比例：21:9 / 16:9 / 4:3 / 3:2 / 1:1 / 2:3 / 3:4 / 9:16 / 4:5 / 5:4
+    body_image_size: str | None = None
+    """正文配图比例/尺寸。
+    None 表示回退到调用方或平台默认值；若仍为空，再回退到正文图片预设比例。
     """
 
     cover_image: str | None = None

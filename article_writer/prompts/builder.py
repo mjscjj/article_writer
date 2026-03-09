@@ -232,7 +232,7 @@ class PromptBuilder:
     @staticmethod
     def build_image_prompt(
         description: str,
-        image: ImagePreset,
+        image: ImagePreset | None,
         *,
         is_cover: bool = False,
         title_text: str = "",
@@ -242,7 +242,7 @@ class PromptBuilder:
 
         Args:
             description: 图片内容描述
-            image: 配图风格预设（控制类型、配色、质量等）
+            image: 正文配图风格预设；封面图时可为 None
             is_cover: 是否为封面图
             title_text: 封面图标题文字
             aspect_ratio: 图片比例（如 "3:4"），由 typeset_pipeline 统一传入
@@ -262,14 +262,18 @@ class PromptBuilder:
             "Do NOT use English words or Latin characters as image text. "
         )
 
-        if is_cover and title_text:
+        if is_cover:
             parts.append(
-                f'{image.cover_style} '
-                f'with the Chinese title text "{title_text}" '
-                f'in bold modern typography, large and prominent. '
-                f'{description}'
+                "Create a premium editorial cover image for a WeChat article. "
+                "Use a strong central subject, clean composition, and clear text-safe area. "
+                f'Place the Simplified Chinese title "{title_text}" prominently with bold modern typography. '
+                f"{description}"
+            )
+            parts.append(
+                "High quality, striking composition, no watermarks, no logos, sharp 4K resolution."
             )
         else:
+            image = image or ImagePreset.cyberpunk_infographic()
             type_prefix = {
                 "infographic": (
                     "A detailed vertical infographic image for a WeChat tech article. "
@@ -290,11 +294,11 @@ class PromptBuilder:
             prefix = type_prefix.get(image.image_type, type_prefix["infographic"])
             parts.append(f"{prefix}{description}")
 
-        # ---- 配色 ----
-        parts.append(f"Visual style: {image.color_scheme}")
+            # ---- 配色 ----
+            parts.append(f"Visual style: {image.color_scheme}")
 
-        # ---- 质量后缀 ----
-        parts.append(image.quality_suffix)
+            # ---- 质量后缀 ----
+            parts.append(image.quality_suffix)
 
         return ". ".join(parts)
 

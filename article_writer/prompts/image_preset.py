@@ -1,6 +1,6 @@
 """Layer 2 — 配图风格预设。
 
-定义「文章配图长什么样」，包括：
+定义「正文配图长什么样」，包括：
 - 图片类型（信息图 / 插画 / 场景图 / 流程图）
 - 配色方案
 - 是否在图中渲染文字
@@ -41,8 +41,7 @@ class ImagePreset:
         color_scheme: 配色描述（英文），直接嵌入图片生成 prompt
         text_in_image: 是否在图中渲染文字/数字（信息图通常需要）
         aspect_ratio: 图片宽高比，如 "3:4"（竖版）、"1:1"（方形）、"16:9"（横版）
-        quality_suffix: 附加到每张图 prompt 末尾的质量描述
-        cover_style: 封面图的额外风格说明
+        quality_suffix: 附加到正文图片 prompt 末尾的质量描述
     """
 
     name: str = "默认配图"
@@ -63,11 +62,6 @@ class ImagePreset:
         "Rich in detail. No watermarks, no logos. Sharp 4K resolution. "
         "IMPORTANT: Any text, labels, titles and annotations in the image "
         "MUST be in Simplified Chinese. Do NOT use English text in the image."
-    )
-
-    cover_style: str = (
-        "Professional tech magazine cover, bold modern typography, "
-        "dark background with gradient accent."
     )
 
     # ------------------------------------------------------------------
@@ -99,11 +93,6 @@ class ImagePreset:
                 "IMPORTANT: Any text, labels, titles and annotations in the image "
                 "MUST be in Simplified Chinese. Do NOT use English text in the image."
             ),
-            cover_style=(
-                "Professional tech magazine cover with bold modern typography. "
-                "Dark background with neon blue/purple gradient accent. "
-                "Cinematic composition."
-            ),
         )
 
     @classmethod
@@ -129,11 +118,6 @@ class ImagePreset:
                 "No watermarks, no logos. Clean vector-style rendering. "
                 "IMPORTANT: Any text, labels, titles and annotations in the image "
                 "MUST be in Simplified Chinese. Do NOT use English text in the image."
-            ),
-            cover_style=(
-                "Elegant magazine-style cover with warm tones. "
-                "Soft gradient background, modern serif typography. "
-                "Cozy and inviting atmosphere."
             ),
         )
 
@@ -161,11 +145,6 @@ class ImagePreset:
                 "IMPORTANT: Any text, labels, titles and annotations in the image "
                 "MUST be in Simplified Chinese. Do NOT use English text in the image."
             ),
-            cover_style=(
-                "Minimalist cover with large bold title on clean background. "
-                "Single accent color. Lots of whitespace. "
-                "Modern geometric element as focal point."
-            ),
         )
 
     @classmethod
@@ -192,11 +171,6 @@ class ImagePreset:
                 "No watermarks, no logos. Professional cinematic look. "
                 "IMPORTANT: Any text, labels, titles and annotations in the image "
                 "MUST be in Simplified Chinese. Do NOT use English text in the image."
-            ),
-            cover_style=(
-                "Cinematic magazine cover celebrating women and film. "
-                "Bold title typography, warm and inspiring atmosphere. "
-                "Multiple film poster elements arranged as a collage or hero image."
             ),
         )
 
