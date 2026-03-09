@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "article-writer"
+version = "0.1.0"
+description = "可插拔式文章写作 & 排版 SDK，支持写作、配图、HTML 排版全流程"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+dependencies = [
+    "openai>=1.0.0",
+    "jinja2>=3.1.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.25.0",
+    "markdown-it-py>=3.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["article_writer*"]
+
+[project.urls]
+Homepage = "https://github.com/mjscjj/article_writer"
+Repository = "https://github.com/mjscjj/article_writer"
