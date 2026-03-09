@@ -226,11 +226,23 @@ result = pipeline.run_typeset_only(article=article, options=TypesetOptions(...))
 
 所有 LLM 调用和图片生成的基础配置。
 
+> **API 格式要求**：本 SDK 底层使用 `openai` Python SDK，调用 `chat.completions.create` 接口。
+> 因此 **`base_url` 指向的服务必须兼容 OpenAI API 格式**（即实现 `/v1/chat/completions` 端点）。
+>
+> 常见兼容服务：
+> - [OpenRouter](https://openrouter.ai)（推荐，支持数百款模型）
+> - OpenAI 官方 API（`https://api.openai.com/v1`）
+> - Azure OpenAI（需配置 `api_version`，暂不原生支持）
+> - 本地部署：Ollama（`http://localhost:11434/v1`）、vLLM、LM Studio 等
+>
+> **不支持**非 OpenAI 兼容格式（如原生 Anthropic API、Gemini REST API 等），
+> 但可通过 OpenRouter 间接调用这些模型。
+
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `base_url` | str | 环境变量 `ARTICLE_WRITER_BASE_URL` 或 `https://openrouter.ai/api/v1` | API 基础地址 |
+| `base_url` | str | 环境变量 `ARTICLE_WRITER_BASE_URL` 或 `https://openrouter.ai/api/v1` | API 基础地址，必须兼容 OpenAI 格式 |
 | `api_key` | str | 环境变量 `ARTICLE_WRITER_API_KEY` | API 密钥 |
-| `llm_model` | str | `qwen/qwen3.5-plus-02-15` | 文本生成模型 |
+| `llm_model` | str | `qwen/qwen3.5-plus-02-15` | 文本生成模型（模型名称格式取决于 provider） |
 | `image_model` | str | `google/gemini-3.1-flash-image-preview` | 图片生成模型 |
 | `image_provider` | str | `openrouter` | 图片调用方式：`openrouter`（chat/completions）或 `openai`（images/generations） |
 | `temperature` | float | `0.7` | 生成温度，0.0-2.0 |
