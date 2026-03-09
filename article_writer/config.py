@@ -57,11 +57,6 @@ class ModelConfig(BaseModel):
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=32768, gt=0)
 
-    image_size: str = Field(
-        default="1024x1024",
-        description="生成图片的尺寸（openai provider 用），如 1024x1024",
-    )
-
     @model_validator(mode="after")
     def _fill_from_env(self) -> "ModelConfig":
         """未显式传值时，从环境变量补全。"""

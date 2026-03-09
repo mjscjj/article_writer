@@ -98,7 +98,7 @@ class ImageClient(BaseImageGenerator):
             "modalities": ["image", "text"],
         }
 
-        aspect_ratio = self._size_to_aspect_ratio(size or self._config.image_size)
+        aspect_ratio = self._size_to_aspect_ratio(size)
         if aspect_ratio:
             payload["image_config"] = {"aspect_ratio": aspect_ratio}
             logger.debug("图片生成使用 aspect_ratio=%s", aspect_ratio)
@@ -170,7 +170,7 @@ class ImageClient(BaseImageGenerator):
         kwargs: dict = {
             "model": self._config.image_model,
             "prompt": prompt,
-            "size": size or self._config.image_size,
+            "size": size or "1024x1024",
             "n": 1,
         }
         if style:

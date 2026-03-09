@@ -475,8 +475,13 @@ class TypesetOptions:
     """
 
     image_size: str | None = None
-    """图片比例/尺寸，透传给图片生成 API。
-    - None（默认）：使用 ModelConfig.image_size（默认 1024x1024，即 1:1）
+    """图片比例/尺寸（唯一的尺寸控制入口）。
+    同时控制 prompt 中的比例约束和图片生成 API 的实际尺寸参数。
+
+    优先级：
+      TypesetOptions.image_size（本字段） > ImagePreset.aspect_ratio
+
+    - None（默认）：回退到 ImagePreset.aspect_ratio（如不设则为 "3:4" 竖版）
     - 比例格式（推荐）："4:3" / "16:9" / "9:16" / "3:4" / "1:1"
     - 像素格式："1024x768"（自动映射到最近比例）
     支持的比例：21:9 / 16:9 / 4:3 / 3:2 / 1:1 / 2:3 / 3:4 / 9:16 / 4:5 / 5:4

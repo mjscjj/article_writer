@@ -235,7 +235,6 @@ result = pipeline.run_typeset_only(article=article, options=TypesetOptions(...))
 | `image_provider` | str | `openrouter` | 图片调用方式：`openrouter`（chat/completions）或 `openai`（images/generations） |
 | `temperature` | float | `0.7` | 生成温度，0.0-2.0 |
 | `max_tokens` | int | `32768` | 单次 LLM 调用最大 token 数 |
-| `image_size` | str | `1024x1024` | 默认图片尺寸 |
 
 ### WritingOptions — 写作参数
 
@@ -260,7 +259,7 @@ result = pipeline.run_typeset_only(article=article, options=TypesetOptions(...))
 | `enable_cover` | bool | `True` | 是否 AI 生成封面图 |
 | `image_preset` | ImagePreset \| None | `None` | 配图风格预设 |
 | `image_count` | str | `"moderate"` | 配图密度：`few`（1-2张）/ `moderate`（2-4张）/ `rich`（4-6张）/ `all`（每节都配） |
-| `image_size` | str \| None | `None` | 图片比例，支持 `"4:3"` / `"16:9"` / `"1024x768"` 等格式 |
+| `image_size` | str \| None | `None` | 图片比例（唯一尺寸入口），覆盖 `ImagePreset.aspect_ratio`；支持 `"4:3"` / `"16:9"` / `"1024x768"` 等 |
 | `cover_image` | str \| None | `None` | 用户提供的封面图 URL（跳过 AI 生成） |
 | `images` | dict \| list \| None | `None` | 用户提供的段落配图，优先级高于 AI 生成 |
 
@@ -515,12 +514,19 @@ Step 4: 发布
 
 ### 图片尺寸设置
 
-通过 `TypesetOptions.image_size` 控制，支持两种格式：
+图片尺寸只有一个入口，优先级规则：
+
+```
+TypesetOptions.image_size（最高） > ImagePreset.aspect_ratio（最低）
+```
+
+- 设置了 `TypesetOptions.image_size`：所有图片（封面 + 正文）使用该尺寸，同时写进 prompt 和传给图片 API
+- 未设置（`None`）：回退到 `ImagePreset.aspect_ratio`（默认 `"3:4"` 竖版，适合手机阅读）
+
+支持两种格式：
 
 - **比例格式**（推荐）：`"4:3"` / `"16:9"` / `"9:16"` / `"1:1"` / `"3:4"` 等
 - **像素格式**：`"1024x768"` / `"1184x864"` — 自动映射到最近的标准比例
-
-所有图片（封面 + 正文配图）使用统一尺寸。不设置时默认 `1024x1024`（1:1）。
 
 ---
 

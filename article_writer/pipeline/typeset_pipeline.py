@@ -227,6 +227,9 @@ class TypesetPipeline:
 
         user_images = self._normalize_user_images(opts.images, typeset_article)
 
+        # 图片尺寸：TypesetOptions.image_size > ImagePreset.aspect_ratio
+        effective_size = opts.image_size or image_preset.aspect_ratio or "3:4"
+
         ai_tasks: dict[int, str] = {}
         for idx, para in enumerate(typeset_article.paragraphs):
             if idx in user_images:
@@ -234,43 +237,42 @@ class TypesetPipeline:
                 para.needs_image = True
             elif opts.enable_images and para.needs_image and para.image_prompt and self.image_generator:
                 ai_tasks[idx] = PromptBuilder.build_image_prompt(
-                    para.image_prompt, image_preset,
+                    para.image_prompt, image_preset, aspect_ratio=effective_size,
                 )
 
-        image_size = opts.image_size or self.config.image_size
         if ai_tasks and self.image_generator:
-            logger.info("Step2: 并发生成 %d 张配图...", len(ai_tasks))
-            ai_results = self._concurrent_generate(ai_tasks, image_size)
+            logger.info("Step2: 并发生成 %d 张配图（尺寸=%s）...", len(ai_tasks), effective_size)
+            ai_results = self._concurrent_generate(ai_tasks, effective_size)
             for idx, url in ai_results.items():
                 typeset_article.paragraphs[idx].image_url = url
 
         if opts.cover_image:
             typeset_article.cover_image_url = opts.cover_image
         elif opts.enable_cover and opts.enable_images and self.image_generator:
-            # 优先使用 Step 1.5 生成的封面 prompt（深度理解文章主旨）
             if image_prompter_result and image_prompter_result.cover_prompt:
                 cover_prompt = PromptBuilder.build_image_prompt(
                     image_prompter_result.cover_prompt,
                     image_preset,
                     is_cover=True,
                     title_text=source_article.title,
+                    aspect_ratio=effective_size,
                 )
                 logger.info(
                     "封面使用 Step1.5 高质量 prompt: 主旨=%s",
                     image_prompter_result.cover_concept,
                 )
             else:
-                # 降级方案：使用文章前 150 字符
                 summary = source_article.content[:150]
                 cover_prompt = PromptBuilder.build_image_prompt(
                     f"Cover image representing: {summary}",
                     image_preset,
                     is_cover=True,
                     title_text=source_article.title,
+                    aspect_ratio=effective_size,
                 )
             try:
                 typeset_article.cover_image_url = self.image_generator.generate_image(
-                    prompt=cover_prompt, size=image_size,
+                    prompt=cover_prompt, size=effective_size,
                 )
                 logger.info("封面图生成完成")
             except Exception as exc:

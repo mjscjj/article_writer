@@ -243,23 +243,23 @@ class PromptBuilder:
         *,
         is_cover: bool = False,
         title_text: str = "",
+        aspect_ratio: str = "",
     ) -> str:
         """组装单张图片的生成 prompt。
 
-        根据 ImagePreset 的 image_type 选择不同的 prompt 框架：
-        - infographic：信息图，强调数据可视化
-        - illustration：插画，强调概念和氛围
-        - scene：场景图，强调写实感
-        - diagram：流程图/架构图，强调结构清晰
-        - poster：电影海报风格，含片名、角色、电影感构图
+        Args:
+            description: 图片内容描述
+            image: 配图风格预设（控制类型、配色、质量等）
+            is_cover: 是否为封面图
+            title_text: 封面图标题文字
+            aspect_ratio: 图片比例（如 "3:4"），由 typeset_pipeline 统一传入
         """
         parts: list[str] = []
 
-        # 在 prompt 最开头强调宽高比，模型会遵守
-        if image.aspect_ratio:
+        if aspect_ratio:
             parts.append(
-                f"CRITICAL: The image MUST be in {image.aspect_ratio} aspect ratio "
-                f"(width:height = {image.aspect_ratio}). "
+                f"CRITICAL: The image MUST be in {aspect_ratio} aspect ratio "
+                f"(width:height = {aspect_ratio}). "
             )
 
         # 全局语言约束：图片中的所有文字必须使用简体中文
