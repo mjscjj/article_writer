@@ -20,7 +20,7 @@
         topic="AI 编程工具横评",
         writing=WritingOptions(search_data=["素材..."]),
         typeset=TypesetOptions(
-            image_preset=ImagePreset.cyberpunk_infographic(),
+            image_preset=ImagePreset.editorial_cinematic(),
             save_path="output/article.html",
             auto_preview=True,
         ),

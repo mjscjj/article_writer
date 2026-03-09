@@ -166,7 +166,11 @@ class TypesetPipeline:
         if needs_any_image:
             logger.info("Step1.5: 专职图片 prompt 生成（封面 + 正文配图）...")
             prompter = ImagePrompter(self.config)
-            image_prompter_result = prompter.generate_prompts(article, typeset_article.paragraphs)
+            image_prompter_result = prompter.generate_prompts(
+                article,
+                typeset_article.paragraphs,
+                image_preset=image_preset,
+            )
             # 将生成的高质量 prompt 写回段落
             for idx, prompt in image_prompter_result.image_prompts.items():
                 if 0 <= idx < len(typeset_article.paragraphs):
@@ -252,7 +256,7 @@ class TypesetPipeline:
             if image_prompter_result and image_prompter_result.cover_prompt:
                 cover_prompt = PromptBuilder.build_image_prompt(
                     image_prompter_result.cover_prompt,
-                    None,
+                    image_preset,
                     is_cover=True,
                     title_text=source_article.title,
                     aspect_ratio=effective_cover_size,
@@ -265,7 +269,7 @@ class TypesetPipeline:
                 summary = source_article.content[:150]
                 cover_prompt = PromptBuilder.build_image_prompt(
                     f"Cover image representing: {summary}",
-                    None,
+                    image_preset,
                     is_cover=True,
                     title_text=source_article.title,
                     aspect_ratio=effective_cover_size,

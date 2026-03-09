@@ -172,10 +172,10 @@ print(result.rendered[:200])
 from article_writer.prompts.image_preset import ImagePreset
 
 # 内置预设
-ImagePreset.cyberpunk_infographic()  # 暗色+霓虹，信息图风格（默认）
-ImagePreset.warm_illustration()      # 暖色调插画风格
-ImagePreset.minimal_tech()           # 白底极简，线条图表
-ImagePreset.movie_poster()           # 电影海报风格
+ImagePreset.editorial_cinematic()      # 社论电影感，默认公众号主视觉
+ImagePreset.tactile_glass_future()     # 触感玻璃未来，适合科技和产品
+ImagePreset.warm_personal_lifestyle()  # 温暖生活影像，适合生活方式
+ImagePreset.quiet_minimal_editorial()  # 冷静极简社论，适合分析评论
 ```
 
 | 字段 | 说明 |
@@ -277,7 +277,8 @@ result = pipeline.run(
     options=TypesetOptions(
         enable_images=True,
         image_count="rich",           # 4-6 张配图
-        image_size="4:3",             # 横版图片
+        cover_image_size="21:9",      # 横向封面
+        body_image_size="4:3",        # 正文横版图片
         article_style=ArticleStyle.lifestyle(),
         emoji_level="rich",           # 全段落 emoji
         save_path="output/lifestyle.html",
@@ -352,7 +353,8 @@ result = pipeline.run(
     typeset_options=TypesetOptions(
         enable_images=True,
         image_count="moderate",
-        image_size="16:9",
+        cover_image_size="21:9",
+        body_image_size="16:9",
         article_style=ArticleStyle.tech(),
         emoji_level="moderate",
         save_path="output/ai_tools.html",

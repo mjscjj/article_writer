@@ -14,6 +14,18 @@ logger = logging.getLogger(__name__)
 
 _MAX_RETRIES = 2
 _RETRY_BACKOFF_BASE = 1.5
+_SUPPORTED_ASPECT_RATIOS = {
+    "21:9": 21 / 9,
+    "16:9": 16 / 9,
+    "4:3": 4 / 3,
+    "3:2": 3 / 2,
+    "1:1": 1.0,
+    "2:3": 2 / 3,
+    "3:4": 3 / 4,
+    "9:16": 9 / 16,
+    "4:5": 4 / 5,
+    "5:4": 5 / 4,
+}
 
 
 class ImageClient(BaseImageGenerator):
@@ -43,43 +55,53 @@ class ImageClient(BaseImageGenerator):
         return self._generate_via_openai(prompt, size, style)
 
     @staticmethod
-    def _size_to_aspect_ratio(size: str | None) -> str | None:
+    def _parse_ratio(size: str | None) -> float | None:
+        if not size:
+            return None
+        raw = str(size).strip().lower()
+        try:
+            if ":" in raw:
+                w, h = [float(v) for v in raw.split(":", 1)]
+            elif "x" in raw:
+                w, h = [float(v) for v in raw.split("x", 1)]
+            else:
+                return None
+        except ValueError:
+            return None
+        if w <= 0 or h <= 0:
+            return None
+        return w / h
+
+    @classmethod
+    def _size_to_aspect_ratio(cls, size: str | None) -> str | None:
         """将 size 字符串转成 OpenRouter image_config.aspect_ratio 格式。
 
         支持输入格式：
           - "4:3"、"16:9" 等比例字符串 → 直接透传
           - "1024x768"、"1184x864" 等 WxH 字符串 → 计算最接近的比例
         """
-        if not size:
+        ratio = cls._parse_ratio(size)
+        if ratio is None:
             return None
+        return min(_SUPPORTED_ASPECT_RATIOS, key=lambda key: abs(_SUPPORTED_ASPECT_RATIOS[key] - ratio))
 
-        # 已经是比例格式，直接返回
-        if ":" in size:
-            return size
+    @classmethod
+    def _normalize_openai_size(cls, size: str | None) -> str:
+        """将任意比例/尺寸映射到 OpenAI images/generations 的安全尺寸。
 
-        # WxH 格式
-        if "x" in size.lower():
-            try:
-                w, h = [int(v) for v in size.lower().split("x")]
-            except ValueError:
-                return None
-            ratio = w / h
-            # 映射到 OpenRouter 支持的比例
-            candidates = {
-                "21:9": 21 / 9,
-                "16:9": 16 / 9,
-                "4:3": 4 / 3,
-                "3:2": 3 / 2,
-                "1:1": 1.0,
-                "2:3": 2 / 3,
-                "3:4": 3 / 4,
-                "9:16": 9 / 16,
-                "4:5": 4 / 5,
-                "5:4": 5 / 4,
-            }
-            return min(candidates, key=lambda k: abs(candidates[k] - ratio))
+        OpenAI 兼容图片接口普遍只接受少量固定尺寸，不能直接传 `21:9`、`4:3`。
+        这里根据目标比例回退到横版 / 方图 / 竖版三类安全像素尺寸。
+        """
+        ratio_key = cls._size_to_aspect_ratio(size)
+        if not ratio_key:
+            return "1024x1024"
 
-        return None
+        ratio = _SUPPORTED_ASPECT_RATIOS[ratio_key]
+        if ratio >= 1.2:
+            return "1792x1024"
+        if ratio <= 0.85:
+            return "1024x1792"
+        return "1024x1024"
 
     def _generate_via_openrouter(self, prompt: str, size: str | None = None) -> str:
         """通过 OpenRouter chat/completions + modalities 生成图片。
@@ -170,7 +192,7 @@ class ImageClient(BaseImageGenerator):
         kwargs: dict = {
             "model": self._config.image_model,
             "prompt": prompt,
-            "size": size or "1024x1024",
+            "size": self._normalize_openai_size(size),
             "n": 1,
         }
         if style:

@@ -77,8 +77,10 @@ def run_full_pipeline():
             article_spec=ArticleSpec.tech_deep_dive(),
         ),
         typeset=TypesetOptions(
-            image_preset=ImagePreset.cyberpunk_infographic(),
+            image_preset=ImagePreset.tactile_glass_future(),
             image_count="moderate",
+            cover_image_size="21:9",
+            body_image_size="4:3",
             save_path=str(OUTPUT_DIR / "full_pipeline.html"),
             auto_preview=True,
         ),

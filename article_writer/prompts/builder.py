@@ -248,6 +248,7 @@ class PromptBuilder:
             aspect_ratio: 图片比例（如 "3:4"），由 typeset_pipeline 统一传入
         """
         parts: list[str] = []
+        image = image or ImagePreset.editorial_cinematic()
 
         if aspect_ratio:
             parts.append(
@@ -255,49 +256,64 @@ class PromptBuilder:
                 f"(width:height = {aspect_ratio}). "
             )
 
-        # 全局语言约束：图片中的所有文字必须使用简体中文
-        parts.append(
-            "IMPORTANT: All text, labels, numbers, titles and annotations displayed "
-            "inside the image MUST be written in Simplified Chinese. "
-            "Do NOT use English words or Latin characters as image text. "
-        )
-
-        if is_cover:
+        if is_cover or image.text_in_image:
             parts.append(
-                "Create a premium editorial cover image for a WeChat article. "
-                "Use a strong central subject, clean composition, and clear text-safe area. "
-                f'Place the Simplified Chinese title "{title_text}" prominently with bold modern typography. '
-                f"{description}"
-            )
-            parts.append(
-                "High quality, striking composition, no watermarks, no logos, sharp 4K resolution."
+                "IMPORTANT: If any text, labels, numbers, titles or annotations appear "
+                "inside the image, they MUST be written in Simplified Chinese only. "
+                "Do NOT use English words or Latin characters as image text. "
             )
         else:
-            image = image or ImagePreset.cyberpunk_infographic()
+            parts.append(
+                "IMPORTANT: Do not render extra text, captions, subtitles, labels, logos, "
+                "watermarks, or UI overlays inside the image. "
+            )
+
+        if is_cover:
+            cover_quality = image.quality_suffix.replace(
+                "Do not render extra text, captions, labels, subtitles, logos, or UI overlays inside the image.",
+                "Only the main Simplified Chinese title may appear; avoid any other extra text, labels, subtitles, logos, or UI overlays.",
+            )
+            parts.append(
+                "Create a premium editorial cover image for a WeChat article. "
+                "Use one dominant focal subject, a clear headline-safe area, and strong magazine-cover hierarchy. "
+                f"{description}"
+            )
+            parts.append(f"Art direction: {image.art_direction}")
+            parts.append(f"Composition: {image.composition_hint}")
+            parts.append(f"Lighting: {image.lighting_hint}")
+            parts.append(f"Texture and materials: {image.texture_hint}")
+            parts.append(f"Mood: {image.mood_hint}")
+            parts.append(f"Color palette: {image.color_scheme}")
+            parts.append(
+                f'Place the Simplified Chinese title "{title_text}" prominently with clean typography and strong hierarchy.'
+            )
+            parts.append(cover_quality)
+        else:
             type_prefix = {
                 "infographic": (
-                    "A detailed vertical infographic image for a WeChat tech article. "
+                    "A detailed editorial infographic image for a WeChat article. "
                 ),
                 "illustration": (
-                    "A beautiful illustration for a WeChat article. "
+                    "A polished editorial illustration for a WeChat article. "
                 ),
                 "scene": (
-                    "A photorealistic scene image for a WeChat article. "
+                    "A premium editorial scene image for a WeChat article. "
                 ),
                 "diagram": (
-                    "A clean technical diagram for a WeChat article. "
+                    "A clean knowledge or strategy diagram for a WeChat article. "
                 ),
                 "poster": (
-                    "An official movie poster style image for a WeChat article. "
+                    "A high-impact editorial poster image for a WeChat article. "
                 ),
             }
             prefix = type_prefix.get(image.image_type, type_prefix["infographic"])
             parts.append(f"{prefix}{description}")
-
-            # ---- 配色 ----
-            parts.append(f"Visual style: {image.color_scheme}")
-
-            # ---- 质量后缀 ----
+            parts.append(f"Art direction: {image.art_direction}")
+            parts.append(f"Composition: {image.composition_hint}")
+            parts.append(f"Lighting: {image.lighting_hint}")
+            parts.append(f"Texture and materials: {image.texture_hint}")
+            parts.append(f"Mood: {image.mood_hint}")
+            parts.append(f"Color palette: {image.color_scheme}")
             parts.append(image.quality_suffix)
 
         return ". ".join(parts)
@@ -308,28 +324,31 @@ class PromptBuilder:
         type_guide = {
             "infographic": (
                 "配图描述要用英文，描述一张**信息图（infographic）**，"
-                "具体说明要在图中展示哪些数据、对比、流程或数字。\n"
+                "明确交代主体信息、数据焦点、画面结构、光线、材质和配色。\n"
                 "   信息图要求：\n"
-                "   - 必须包含段落中出现的具体数字/百分比/对比数据\n"
-                "   - 描述要细，至少写 3-4 行英文\n"
-                f"   - 风格：{image.color_scheme}"
+                "   - 优先保留段落中的关键数字、百分比、对比关系\n"
+                "   - 明确一个主视觉和一个核心结论，不要把信息堆满\n"
+                f"   - 风格锚点：{image.visual_guide()}"
             ),
             "illustration": (
                 "配图描述要用英文，具体描述一幅与段落内容相关的插画场景，"
-                "包含主体、构图、色调、氛围。\n"
-                f"   风格偏向：{image.color_scheme}"
+                "包含主体、场景、构图、光线、材质和氛围。\n"
+                f"   风格锚点：{image.visual_guide()}"
             ),
             "scene": (
-                "配图描述要用英文，描述一个与段落内容相关的逼真场景。\n"
-                f"   风格偏向：{image.color_scheme}"
+                "配图描述要用英文，描述一个与段落内容相关的逼真场景，"
+                "要写清主体、空间层次、镜头、光线、材质和情绪。\n"
+                f"   风格锚点：{image.visual_guide()}"
             ),
             "diagram": (
-                "配图描述要用英文，描述一张与段落内容相关的架构图或流程图。\n"
-                f"   风格偏向：{image.color_scheme}"
+                "配图描述要用英文，描述一张与段落内容相关的架构图或流程图，"
+                "要写清模块关系、阅读顺序、标注层级和视觉留白。\n"
+                f"   风格锚点：{image.visual_guide()}"
             ),
             "poster": (
-                "配图描述要用英文，描述一张**电影海报风格**的图片。\n"
-                f"   风格：{image.color_scheme}"
+                "配图描述要用英文，描述一张**海报式主视觉**图片，"
+                "要写清主视觉主体、冲击点、层级、字体安全区和情绪。\n"
+                f"   风格锚点：{image.visual_guide()}"
             ),
         }
         return type_guide.get(image.image_type, type_guide["infographic"])
@@ -354,11 +373,12 @@ class PromptBuilder:
             "你是一位专业的配图描述生成器。你的任务是根据文章段落内容，"
             "为每个段落生成一段英文配图描述（image prompt），用于 AI 图片生成。\n\n"
             f"图片类型：{img_type}\n"
-            f"配色风格：{image.color_scheme}\n\n"
+            f"视觉锚点：{image.visual_guide()}\n\n"
             "要求：\n"
-            "1. 每段描述用英文，2-4 句话，具体描述画面内容、构图、配色\n"
-            "2. 如果段落含有具体数字/百分比，在图片中体现这些数据\n"
-            "3. 保持所有描述风格一致\n\n"
+            "1. 每段描述用英文，2-4 句话，必须写到主体、场景、构图、光线、材质、色板、情绪\n"
+            "2. 每张图都要只有一个清晰主视觉，不要堆太多元素\n"
+            "3. 如果段落含有具体数字/百分比，只保留最关键的数据焦点\n"
+            "4. 保持所有描述风格一致，并严格对齐目标视觉锚点\n\n"
             '以 JSON 格式输出：{"prompts": ["prompt1", "prompt2", ...]}\n'
             "prompts 数组的长度必须与输入段落数量完全一致。"
         )

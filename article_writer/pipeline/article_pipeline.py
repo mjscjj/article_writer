@@ -12,7 +12,7 @@
     result = pipeline.run(
         topic="MCP 协议改变 AI 开发",
         writing=WritingOptions(search_data=[...]),
-        typeset=TypesetOptions(image_preset=ImagePreset.cyberpunk_infographic()),
+        typeset=TypesetOptions(image_preset=ImagePreset.editorial_cinematic()),
     )
 """
 

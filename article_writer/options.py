@@ -458,12 +458,20 @@ class TypesetOptions:
 
     image_preset: ImagePreset | None = None
     """正文配图风格预设，控制正文图片的类型、配色、质量要求。
-    - None（默认）：使用 ImagePreset 默认值（赛博朋克信息图风格）。
+    - None（默认）：使用 ImagePreset 默认值（社论电影感）。
     - 内置预设：
-      - ImagePreset.cyberpunk_infographic()  暗色+霓虹，科技/AI 类
-      - ImagePreset.warm_illustration()      米色+插画，生活/教育类
-      - ImagePreset.minimal_tech()           白底+线条，产品/教程类
-      - ImagePreset.movie_poster()           电影海报风，影单/节日类
+      - ImagePreset.editorial_cinematic()    社论电影感，公众号默认主视觉
+      - ImagePreset.tactile_glass_future()   触感玻璃未来，AI/科技/产品
+      - ImagePreset.warm_personal_lifestyle() 温暖生活影像，生活方式/社媒
+      - ImagePreset.quiet_minimal_editorial() 冷静极简社论，评论/分析
+      - ImagePreset.refined_fashion_editorial() 高级时尚社论，品牌/文化
+      - ImagePreset.calm_knowledge_minimal() 安静知识极简，教程/方法论
+      - ImagePreset.clean_business_editorial() 商务社论图解，汇报/商业
+      - ImagePreset.local_documentary_warm() 温暖纪实故事，人物/叙事
+      - ImagePreset.dark_reality_warp()      暗色未来错视，前沿科技
+      - ImagePreset.halftone_newsroom()      半调新闻图解，资讯/热点
+      - ImagePreset.grainy_literary_still()  颗粒胶片阅读，文艺/书评
+      - ImagePreset.zine_collage_story()     Zine 拼贴故事，年轻化热点
     """
 
     image_count: str = "moderate"

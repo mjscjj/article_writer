@@ -19,54 +19,79 @@ from dataclasses import dataclass
 
 from article_writer.config import ModelConfig
 from article_writer.models.llm_client import LLMClient
+from article_writer.prompts.image_preset import ImagePreset
 from article_writer.schema import Article, Paragraph
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """\
-你是一位专业的视觉内容策划师，擅长为微信公众号文章设计配图方案。
+def _build_system_prompt(image_preset: ImagePreset) -> str:
+    body_text_rule = (
+        "正文配图允许极少量中文信息，但仅限最关键的标题、标签、数字，必须清晰易读。"
+        if image_preset.text_in_image
+        else "正文配图默认不出现额外文字、标签、字幕、UI 覆层。"
+    )
+    return f"""\
+你是一位专业的视觉内容策划师，擅长为微信公众号文章设计封面与正文配图方案。
+
+这次必须对齐以下目标图片风格锚点，不要自行跑偏：
+{image_preset.visual_guide()}
 
 你的工作流程：
 1. 深度阅读文章，理解其核心主旨、目标受众、情感调性
-2. 确定一套统一的视觉风格（色调、构图语言、元素选择）
-3. 为封面图设计一个能「一眼传达文章核心价值」的视觉概念
-4. 为每张正文配图设计与段落主旨紧密关联的视觉概念
+2. 先确定统一视觉母题，再分别设计封面和正文配图
+3. 所有 prompt 都要写得具体，优先写主体、场景、构图、镜头/视角、光线、材质/纹理、色板、情绪
+4. 所有图片都要只有一个明确主视觉，避免元素堆叠和空泛形容词
 
 【封面图要求】
 - 封面是读者决定是否点进来的关键，必须有极强的视觉吸引力
-- 必须传达文章最核心的观点或最有冲击力的数据
-- 风格上像杂志封面，不像文章插图
-- 如果文章有关键数字（如 72.5%、5000家），将其作为视觉焦点元素之一
-- 封面图不包含任何列表或复杂信息图，只有1个主视觉 + 标题
+- 必须传达文章最核心的观点、人物关系或最有冲击力的数据
+- 风格上像高端杂志封面，不像普通插图
+- 保留明显的标题安全区，视觉密度要可控
+- 如果文章有关键数字（如 72.5%、5000 家），可将其作为视觉焦点元素之一
+- 封面 prompt 用英文写 150-220 词
 
 【正文配图要求】
 - 每张图必须服务于所在段落的具体论点，不能泛泛描述
-- 要具体描述：画面中有什么元素、构图（前景/中景/背景）、光线、色调
-- 描述长度：80-150 个英文单词，比排版阶段的附带描述要详细得多
+- prompt 必须写清楚：主体、场景、构图、光线、材质/纹理、色板、情绪
+- 正文 prompt 用英文写 90-160 词
 - 所有图的色调和风格要与封面保持一致
+- {body_text_rule}
 
 【输出格式】
 严格输出以下 JSON 结构，不添加任何额外说明：
-{
+{{
   "article_theme": "一句话总结文章核心主旨（20字以内）",
-  "visual_tone": "统一的视觉调性描述（英文，如 dark tech blue, data visualization, futuristic）",
-  "cover": {
+  "visual_tone": "统一的视觉调性描述（英文，如 editorial cinematic, tactile glass future）",
+  "cover": {{
     "concept": "封面核心视觉概念（20字）",
     "key_data": "文章最有冲击力的数据或关键词（如有，否则留空）",
-    "prompt": "封面图详细英文 prompt（150-200词）"
-  },
+    "prompt": "封面图详细英文 prompt"
+  }},
   "images": [
-    {
+    {{
       "paragraph_index": 0,
       "paragraph_summary": "这段主要讲什么（10字以内）",
-      "prompt": "正文配图详细英文 prompt（80-150词）"
-    }
+      "prompt": "正文配图详细英文 prompt"
+    }}
   ]
-}
+}}
 """
 
-_USER_PROMPT = """\
+
+def _build_user_prompt(
+    *,
+    title: str,
+    content: str,
+    paragraphs_text: str,
+    image_preset: ImagePreset,
+) -> str:
+    return f"""\
 请为以下文章设计配图方案。
+
+【目标图片风格】
+名称：{image_preset.name}
+类型：{image_preset.image_type}
+风格锚点：{image_preset.visual_guide()}
 
 【文章标题】
 {title}
@@ -120,6 +145,7 @@ class ImagePrompter:
         self,
         article: Article,
         paragraphs: list[Paragraph],
+        image_preset: ImagePreset | None = None,
     ) -> ImagePromptResult:
         """为文章生成封面 + 正文配图的高质量 prompt。
 
@@ -155,21 +181,24 @@ class ImagePrompter:
             )
         paragraphs_text = "\n\n".join(paragraphs_text_parts)
 
-        user_prompt = _USER_PROMPT.format(
+        effective_preset = image_preset or ImagePreset.editorial_cinematic()
+        user_prompt = _build_user_prompt(
             title=article.title,
             content=article.content,
             paragraphs_text=paragraphs_text,
+            image_preset=effective_preset,
         )
 
         llm = LLMClient(self._config)
         logger.info(
-            "Step 1.5: 为 %d 张配图 + 封面生成高质量 prompt...",
+            "Step 1.5: 为 %d 张配图 + 封面生成高质量 prompt（preset=%s）...",
             len(image_paragraphs),
+            effective_preset.name,
         )
 
         raw = llm.generate_json(
             prompt=user_prompt,
-            system_prompt=_SYSTEM_PROMPT,
+            system_prompt=_build_system_prompt(effective_preset),
             max_tokens=4096,
         )
 

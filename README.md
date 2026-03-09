@@ -128,8 +128,8 @@ result = pipeline.run(
     ),
     typeset=TypesetOptions(
         article_style=ArticleStyle.tech(),
-        image_preset=ImagePreset.cyberpunk_infographic(),
-        image_size="4:3",
+        image_preset=ImagePreset.tactile_glass_future(),
+        body_image_size="4:3",
         emoji_level="moderate",
         save_path="output/article.html",
         auto_preview=True,
@@ -190,10 +190,10 @@ result = pipeline.run(
         enable_images=True,
         enable_cover=True,
         image_count="moderate",
-        image_size="4:3",
+        body_image_size="4:3",
         emoji_level="moderate",
         article_style=ArticleStyle.tech(),
-        image_preset=ImagePreset.cyberpunk_infographic(),
+        image_preset=ImagePreset.tactile_glass_future(),
         save_path="output/result.html",
         auto_preview=True,
     ),
@@ -384,16 +384,24 @@ my_style = ArticleStyle(
 )
 ```
 
-### ImagePreset — 配图风格（4 个内置预设）
+### ImagePreset — 配图风格（主流公众号预设）
 
 控制 AI 配图的视觉风格。
 
 | 预设 | 方法 | 风格说明 |
 |------|------|---------|
-| 赛博朋克信息图 | `ImagePreset.cyberpunk_infographic()` | 暗色+霓虹，适合科技/AI |
-| 温暖插画 | `ImagePreset.warm_illustration()` | 米色+手绘，适合生活/教育 |
-| 极简科技 | `ImagePreset.minimal_tech()` | 白底+线条，适合产品/教程 |
-| 电影海报 | `ImagePreset.movie_poster()` | 电影海报风，适合影单/节日 |
+| 社论电影感 | `ImagePreset.editorial_cinematic()` | 高端公众号封面 / 通用主视觉 |
+| 触感玻璃未来 | `ImagePreset.tactile_glass_future()` | AI / 科技 / 产品 |
+| 温暖生活影像 | `ImagePreset.warm_personal_lifestyle()` | 生活方式 / 社媒表达 |
+| 冷静极简社论 | `ImagePreset.quiet_minimal_editorial()` | 评论 / 分析 / 观点 |
+| 高级时尚社论 | `ImagePreset.refined_fashion_editorial()` | 品牌 / 文化 / 人物 |
+| 安静知识极简 | `ImagePreset.calm_knowledge_minimal()` | 教程 / 方法论 / 知识总结 |
+| 商务社论图解 | `ImagePreset.clean_business_editorial()` | 商业 / 汇报 / 行业解读 |
+| 温暖纪实故事 | `ImagePreset.local_documentary_warm()` | 人物 / 故事 / 节日专题 |
+| 暗色未来错视 | `ImagePreset.dark_reality_warp()` | 前沿科技 / 趋势话题 |
+| 半调新闻图解 | `ImagePreset.halftone_newsroom()` | 资讯 / 热点 / 快报 |
+| 颗粒胶片阅读 | `ImagePreset.grainy_literary_still()` | 书评 / 影评 / 随笔 |
+| Zine 拼贴故事 | `ImagePreset.zine_collage_story()` | 年轻化栏目 / 热点拆解 |
 
 自定义示例：
 
