@@ -4,7 +4,6 @@
 - 作者人设（年龄、身份、性格）
 - 写作约束（节奏、人称、立场要求）
 - 场景化禁词（在 CorePrompts 基础上追加）
-- Emoji 策略
 
 内置三套预设，用户也可以完全自定义。
 
@@ -36,11 +35,6 @@ class WriterPreset:
         reader_profile: 目标读者画像描述
         writing_rules: 写作约束列表（如节奏要求、人称要求等）
         forbidden_words_extra: 额外禁词，会与 CorePrompts.forbidden_words 合并
-        emoji_policy: emoji 使用策略
-            - "none"：不使用
-            - "light"：适当点缀（小标题前 + 正文 3-5 处）
-            - "rich"：大量使用
-        emoji_guide: 当 emoji_policy 不为 "none" 时的具体指导说明
         polish_persona: 润色阶段的 system prompt 角色定义
     """
 
@@ -62,10 +56,6 @@ class WriterPreset:
 
     forbidden_words_extra: list[str] = field(default_factory=list)
     """追加禁词——与 CorePrompts.forbidden_words 合并，不会覆盖。"""
-
-    emoji_policy: str = "none"
-
-    emoji_guide: str = ""
 
     polish_persona: str = (
         "你是一位资深编辑，帮这位作者把草稿改成他自己说话的风格。"
@@ -105,8 +95,6 @@ class WriterPreset:
             forbidden_words_extra=[
                 "首先其次最后",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位科技博主的老朋友，帮他把刚写出来的草稿改成他真正说话的样子。"
                 "你了解他：说话直接，有立场，不绕弯子，偶尔自我调侃，不喜欢废话。"
@@ -142,8 +130,6 @@ class WriterPreset:
             forbidden_words_extra=[
                 "暴涨", "暴跌", "财富密码", "稳赚", "躺赚", "上车",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位财经博主的编辑搭档，帮他检查文章是否说人话、数据是否讲清楚了。"
                 "你了解他：严谨但不学究，不喜欢贩卖焦虑，偏好用故事带数据。"
@@ -179,8 +165,6 @@ class WriterPreset:
             forbidden_words_extra=[
                 "干货", "硬核", "底层逻辑", "方法论", "复盘",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位博主的好朋友，帮她把文章改得更像她平时说话的感觉。"
                 "你了解她：文字细腻但不做作，偏好留白，不喜欢大道理。"
@@ -218,8 +202,6 @@ class WriterPreset:
             forbidden_words_extra=[
                 "鸡娃", "内卷", "贩卖焦虑", "输在起跑线", "别人家的孩子",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位教育博士的编辑搭档，帮她把文章改得更温暖、更像她平时说话的样子。"
                 "你了解她：积极乐观，乐于分享，不喜欢说教，喜欢用故事打动读者。"
@@ -257,8 +239,6 @@ class WriterPreset:
             forbidden_words_extra=[
                 "打卡", "必去", "宝藏", "隐藏款", "超绝", "绝绝子",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位旅行博主的编辑老友，帮她把草稿改成她说话的质感。"
                 "她的文字要有在地感、有温度、有细节，但不啰嗦。"
@@ -296,8 +276,6 @@ class WriterPreset:
                 "养生", "排毒", "调理", "体质", "湿气", "毒素", "神奇",
                 "一招搞定", "根治", "治百病",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位健康博主的专业编辑，帮他检查：表达是否准确、建议是否实操、"
                 "是否有无意中制造焦虑的表达。要严谨但不学术腔。"
@@ -334,8 +312,6 @@ class WriterPreset:
             forbidden_words_extra=[
                 "干货满满", "一本书读懂", "治愈系", "爆款",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位书评人的文学编辑，帮他打磨文字质感。"
                 "要保留他的锐气和个人立场，去掉空洞的溢美之词，让每句话都有重量。"
@@ -371,8 +347,6 @@ class WriterPreset:
             forbidden_words_extra=[
                 "鸡娃", "内卷", "输在起跑线", "别人家的孩子", "要赢在",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位家长博主的闺蜜编辑，帮她把文章改成她在家长群说话的感觉。"
                 "温暖、接地气、有用，不说教，不贩卖焦虑。"
@@ -411,8 +385,6 @@ class WriterPreset:
                 "赛道", "风口", "赋能", "生态", "护城河", "颠覆",
                 "用户思维", "增长黑客", "最小可行", "破圈",
             ],
-            emoji_policy="none",
-            emoji_guide="",
             polish_persona=(
                 "你是这位创业者的内容编辑，帮他把草稿改成他朋友圈说话的风格。"
                 "他说话直接、有料、不废话，偶尔自我调侃，但每句话都有内容。"

@@ -39,7 +39,6 @@ class PromptBuilder:
         - 作者人设（来自 writer）
         - 读者画像（来自 writer）
         - 写作规则（来自 writer）
-        - emoji 指南（来自 writer）
         - 禁词表（core + writer.extra 合并）
         - 禁止句式（来自 core）
         - 风格附加（来自 style_section）
@@ -56,12 +55,6 @@ class PromptBuilder:
         parts.append("【你的写作方式】")
         for rule in writer.writing_rules:
             parts.append(f"- {rule}")
-
-        # ---- Emoji ----
-        if writer.emoji_policy != "none" and writer.emoji_guide:
-            parts.append("")
-            parts.append("【Emoji 使用】")
-            parts.append(f"- {writer.emoji_guide}")
 
         # ---- 禁词（core + writer extra 合并）----
         all_forbidden = core.forbidden_words + writer.forbidden_words_extra

@@ -310,7 +310,6 @@ my_writer = WriterPreset(
         "禁止使用「震惊」「暴涨」等情绪化词汇",
         "用第三人称客观叙述",
     ],
-    emoji_policy="none",
 )
 ```
 
