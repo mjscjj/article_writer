@@ -105,12 +105,8 @@ class WriterPreset:
             forbidden_words_extra=[
                 "首先其次最后",
             ],
-            emoji_policy="light",
-            emoji_guide=(
-                "每个小标题前加 1 个相关 emoji。"
-                "正文中 3-5 处点缀：强调数据时（📊）、惊喜或警告（🚨💡⚡）、"
-                "行动或建议（👉）、体验感受（🤯😅）。不要滥用，每处 emoji 要有加分效果。"
-            ),
+            emoji_policy="none",
+            emoji_guide="",
             polish_persona=(
                 "你是这位科技博主的老朋友，帮他把刚写出来的草稿改成他真正说话的样子。"
                 "你了解他：说话直接，有立场，不绕弯子，偶尔自我调侃，不喜欢废话。"
@@ -146,12 +142,8 @@ class WriterPreset:
             forbidden_words_extra=[
                 "暴涨", "暴跌", "财富密码", "稳赚", "躺赚", "上车",
             ],
-            emoji_policy="light",
-            emoji_guide=(
-                "小标题前加 1 个相关 emoji。"
-                "正文中数据处用 📊📈📉 点缀，注意事项处用 ⚠️，"
-                "总共不超过 5 处。财经内容要保持专业感，emoji 不能太活泼。"
-            ),
+            emoji_policy="none",
+            emoji_guide="",
             polish_persona=(
                 "你是这位财经博主的编辑搭档，帮他检查文章是否说人话、数据是否讲清楚了。"
                 "你了解他：严谨但不学究，不喜欢贩卖焦虑，偏好用故事带数据。"
@@ -226,11 +218,8 @@ class WriterPreset:
             forbidden_words_extra=[
                 "鸡娃", "内卷", "贩卖焦虑", "输在起跑线", "别人家的孩子",
             ],
-            emoji_policy="light",
-            emoji_guide=(
-                "小标题前加 1 个温和的 emoji（🌸💕📚🎬✨ 等）。"
-                "正文中 3-5 处点缀，用来强调重点或表达温暖，不要滥用。"
-            ),
+            emoji_policy="none",
+            emoji_guide="",
             polish_persona=(
                 "你是这位教育博士的编辑搭档，帮她把文章改得更温暖、更像她平时说话的样子。"
                 "你了解她：积极乐观，乐于分享，不喜欢说教，喜欢用故事打动读者。"
@@ -268,11 +257,8 @@ class WriterPreset:
             forbidden_words_extra=[
                 "打卡", "必去", "宝藏", "隐藏款", "超绝", "绝绝子",
             ],
-            emoji_policy="light",
-            emoji_guide=(
-                "小标题前加 1 个地点或氛围相关 emoji（✈️🗺️🌊🏔️🌅🍜🛖）。"
-                "正文中 2-4 处点缀，用于情绪高潮或特别提示，不滥用。"
-            ),
+            emoji_policy="none",
+            emoji_guide="",
             polish_persona=(
                 "你是这位旅行博主的编辑老友，帮她把草稿改成她说话的质感。"
                 "她的文字要有在地感、有温度、有细节，但不啰嗦。"
@@ -310,11 +296,8 @@ class WriterPreset:
                 "养生", "排毒", "调理", "体质", "湿气", "毒素", "神奇",
                 "一招搞定", "根治", "治百病",
             ],
-            emoji_policy="light",
-            emoji_guide=(
-                "小标题前加 1 个相关 emoji（🌿💊🧬🏃‍♀️😴🥦🧠）。"
-                "正文中重要提示处用 ⚠️，关键建议处用 ✅，总共不超过 5 处。"
-            ),
+            emoji_policy="none",
+            emoji_guide="",
             polish_persona=(
                 "你是这位健康博主的专业编辑，帮他检查：表达是否准确、建议是否实操、"
                 "是否有无意中制造焦虑的表达。要严谨但不学术腔。"
@@ -388,11 +371,8 @@ class WriterPreset:
             forbidden_words_extra=[
                 "鸡娃", "内卷", "输在起跑线", "别人家的孩子", "要赢在",
             ],
-            emoji_policy="light",
-            emoji_guide=(
-                "小标题前加 1 个温暖的 emoji（👶🧒💕🏠📖🌈🤗）。"
-                "正文中 3-5 处点缀，在温馨场景或重要提示处使用，保持轻松感。"
-            ),
+            emoji_policy="none",
+            emoji_guide="",
             polish_persona=(
                 "你是这位家长博主的闺蜜编辑，帮她把文章改成她在家长群说话的感觉。"
                 "温暖、接地气、有用，不说教，不贩卖焦虑。"
@@ -431,11 +411,8 @@ class WriterPreset:
                 "赛道", "风口", "赋能", "生态", "护城河", "颠覆",
                 "用户思维", "增长黑客", "最小可行", "破圈",
             ],
-            emoji_policy="light",
-            emoji_guide=(
-                "小标题前加 1 个相关 emoji（🚀💡📊🛠️⚡🎯💰）。"
-                "正文中 2-4 处点缀，在关键转折或重要数据处使用，保持专业感。"
-            ),
+            emoji_policy="none",
+            emoji_guide="",
             polish_persona=(
                 "你是这位创业者的内容编辑，帮他把草稿改成他朋友圈说话的风格。"
                 "他说话直接、有料、不废话，偶尔自我调侃，但每句话都有内容。"
