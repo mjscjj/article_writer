@@ -26,6 +26,9 @@ dev = ["pytest", "black", "ruff"]
 where = ["."]
 include = ["article_writer*"]
 
+[tool.setuptools.package-data]
+article_writer = ["templates/*.html"]
+
 [project.urls]
 Homepage = "https://github.com/mjscjj/article_writer"
 Repository = "https://github.com/mjscjj/article_writer"
