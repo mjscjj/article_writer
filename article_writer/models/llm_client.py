@@ -42,12 +42,15 @@ class LLMClient:
 
         for attempt in range(_MAX_RETRIES + 1):
             try:
-                resp = self._client.chat.completions.create(
+                kwargs = dict(
                     model=self._config.llm_model,
                     messages=messages,
                     temperature=temperature or self._config.temperature,
                     max_tokens=max_tokens or self._config.max_tokens,
                 )
+                if self._config.extra_body:
+                    kwargs["extra_body"] = self._config.extra_body
+                resp = self._client.chat.completions.create(**kwargs)
                 content = resp.choices[0].message.content or ""
                 if resp.choices[0].finish_reason == "length":
                     logger.warning(
@@ -128,13 +131,16 @@ class LLMClient:
         tokens = max_tokens
         for _ in range(3):
             try:
-                resp = self._client.chat.completions.create(
+                create_kwargs = dict(
                     model=self._config.llm_model,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=tokens,
                     response_format={"type": "json_object"},
                 )
+                if self._config.extra_body:
+                    create_kwargs["extra_body"] = self._config.extra_body
+                resp = self._client.chat.completions.create(**create_kwargs)
                 choice = resp.choices[0]
                 if choice.finish_reason == "length":
                     tokens = min(tokens * 2, 65536)

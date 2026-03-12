@@ -56,6 +56,10 @@ class ModelConfig(BaseModel):
     )
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=32768, gt=0)
+    extra_body: dict | None = Field(
+        default_factory=lambda: {"reasoning": {"effort": "none"}},
+        description="额外参数，透传到 OpenAI SDK 的 extra_body。默认关闭思考模式以降低延迟；传 None 则不附加任何额外参数",
+    )
 
     @model_validator(mode="after")
     def _fill_from_env(self) -> "ModelConfig":
