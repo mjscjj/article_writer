@@ -16,25 +16,61 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from article_writer.config import ModelConfig
 from article_writer.models.llm_client import LLMClient
 from article_writer.prompts.image_preset import ImagePreset
 from article_writer.schema import Article, Paragraph
 
+if TYPE_CHECKING:
+    from article_writer.prompts.writer_preset import WriterPreset
+
 logger = logging.getLogger(__name__)
 
-def _build_system_prompt(image_preset: ImagePreset) -> str:
+def _build_writer_alignment_block(writer_preset: WriterPreset | None) -> str:
+    if writer_preset is None:
+        return ""
+
+    writing_rules = getattr(writer_preset, "writing_rules", None) or []
+    top_rules = [
+        f"- {str(rule).strip()}"
+        for rule in writing_rules[:3]
+        if str(rule).strip()
+    ]
+    if not top_rules:
+        top_rules = ["- 保持作者一贯的表达气质，不做空泛商业图库感。"]
+
+    return f"""\
+【作者人设对齐】
+- 作者名称：{getattr(writer_preset, "name", "")}
+- 作者人设：{getattr(writer_preset, "persona", "")}
+- 目标读者：{getattr(writer_preset, "reader_profile", "")}
+- 写作约束：
+{chr(10).join(top_rules)}
+
+使用方式：
+- 仅用于调节图片的视觉语气、主体选择、人物状态、拍摄距离和叙事视角
+- 不要改变图片数量、段落映射和整体版式结构
+- 不要机械地把作者本人当成默认主角，除非文章明显是第一人称经历或人物自述
+- 如果文章是分析、评论、数据、方法论，优先选择更符合作者气质的场景/物件/角色承载，而不是生硬画出作者本人
+"""
+
+
+def _build_system_prompt(image_preset: ImagePreset, writer_preset: WriterPreset | None = None) -> str:
     body_text_rule = (
         "正文配图允许极少量中文信息，但仅限最关键的标题、标签、数字，必须清晰易读。"
         if image_preset.text_in_image
         else "正文配图默认不出现额外文字、标签、字幕、UI 覆层。"
     )
+    writer_alignment = _build_writer_alignment_block(writer_preset)
     return f"""\
 你是一位专业的视觉内容策划师，擅长为微信公众号文章设计封面与正文配图方案。
 
 这次必须对齐以下目标图片风格锚点，不要自行跑偏：
 {image_preset.visual_guide()}
+
+{writer_alignment}
 
 你的工作流程：
 1. 深度阅读文章，理解其核心主旨、目标受众、情感调性
@@ -84,7 +120,18 @@ def _build_user_prompt(
     content: str,
     paragraphs_text: str,
     image_preset: ImagePreset,
+    writer_preset: WriterPreset | None = None,
 ) -> str:
+    writer_alignment = ""
+    if writer_preset is not None:
+        writer_alignment = f"""
+
+【作者人设（只用于图片语气与主体选择）】
+作者：{getattr(writer_preset, "name", "")}
+人设：{getattr(writer_preset, "persona", "")}
+读者：{getattr(writer_preset, "reader_profile", "")}
+约束：{"；".join([str(rule).strip() for rule in (getattr(writer_preset, "writing_rules", None) or [])[:3] if str(rule).strip()])}
+"""
     return f"""\
 请为以下文章设计配图方案。
 
@@ -98,6 +145,8 @@ def _build_user_prompt(
 
 【文章全文】
 {content}
+
+{writer_alignment}
 
 【需要配图的段落】（请为这些段落生成正文配图 prompt）
 {paragraphs_text}
@@ -146,6 +195,7 @@ class ImagePrompter:
         article: Article,
         paragraphs: list[Paragraph],
         image_preset: ImagePreset | None = None,
+        writer_preset: WriterPreset | None = None,
     ) -> ImagePromptResult:
         """为文章生成封面 + 正文配图的高质量 prompt。
 
@@ -187,6 +237,7 @@ class ImagePrompter:
             content=article.content,
             paragraphs_text=paragraphs_text,
             image_preset=effective_preset,
+            writer_preset=writer_preset,
         )
 
         llm = LLMClient(self._config)
@@ -198,7 +249,7 @@ class ImagePrompter:
 
         raw = llm.generate_json(
             prompt=user_prompt,
-            system_prompt=_build_system_prompt(effective_preset),
+            system_prompt=_build_system_prompt(effective_preset, writer_preset=writer_preset),
             max_tokens=4096,
         )
 

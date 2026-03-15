@@ -534,6 +534,13 @@ class TypesetOptions:
     注：LLM 始终会为每段生成 emoji 建议，此参数只控制渲染时是否展示。
     """
 
+    writer_preset: WriterPreset | None = None
+    """作者人设，仅用于排版线里的图片 prompt 对齐。
+
+    该字段不会参与正文结构化排版决策，只允许影响封面/配图 prompt 的视觉语气、
+    主体选择和叙事距离，避免把作者人设反向污染正文排版结构。
+    """
+
     # ---- 输出控制 ----
     output_format: str = "wechat_html"
     """输出格式。

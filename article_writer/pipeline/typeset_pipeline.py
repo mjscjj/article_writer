@@ -170,6 +170,7 @@ class TypesetPipeline:
                 article,
                 typeset_article.paragraphs,
                 image_preset=image_preset,
+                writer_preset=opts.writer_preset,
             )
             # 将生成的高质量 prompt 写回段落
             for idx, prompt in image_prompter_result.image_prompts.items():
