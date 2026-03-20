@@ -59,6 +59,7 @@ class LLMWriter(BaseWriter):
         article_spec: ArticleSpec | None = None,
         style: str | list[str] | None = None,
         style_analyzer: BaseStyleAnalyzer | None = None,
+        preserve_title: bool = False,
         **kwargs,
     ) -> Article:
         cfg = config or self._config
@@ -81,11 +82,16 @@ class LLMWriter(BaseWriter):
             core=core, writer=writer, style_section=style_section,
         )
         user_prompt = PromptBuilder.build_generation_user_prompt(
-            topic=topic, search_data=search_data or [], spec=spec,
+            topic=topic,
+            search_data=search_data or [],
+            spec=spec,
+            fixed_title=topic if preserve_title else None,
         )
 
         raw = llm.generate(prompt=user_prompt, system_prompt=system_prompt)
         title, content = _split_title_and_content(raw)
+        if preserve_title:
+            title = topic
 
         return Article(
             topic=topic,
@@ -123,6 +129,8 @@ class LLMPolisher(BasePolisher):
         writer_preset: WriterPreset | None = None,
         core_prompts: CorePrompts | None = None,
         article_spec: ArticleSpec | None = None,
+        enable_humanize: bool = True,
+        preserve_title: bool = False,
         **kwargs,
     ) -> Article:
         cfg = config or self._config
@@ -137,11 +145,15 @@ class LLMPolisher(BasePolisher):
         polished = llm.generate(
             prompt=PromptBuilder.build_polish_user_prompt(
                 core=core, writer=writer, content=raw_text, article_spec=article_spec,
+                enable_humanize=enable_humanize,
+                fixed_title=article.title if preserve_title else None,
             ),
             system_prompt=PromptBuilder.build_polish_system_prompt(writer),
         )
 
         title, content = _split_title_and_content(polished)
+        if preserve_title:
+            title = article.title
         return Article(
             topic=article.topic,
             title=title or article.title,

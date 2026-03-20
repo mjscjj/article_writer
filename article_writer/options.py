@@ -39,6 +39,19 @@ class WritingOptions:
     enable_polish: bool = True
     """是否执行润色阶段。"""
 
+    enable_humanize: bool = True
+    """是否在润色阶段执行「去 AI 味」操作清单（需 enable_polish=True 才生效）。
+    - True（默认）：使用 WriterPreset 专属 polish_checklist（或 CorePrompts 默认清单）
+        进行完整的去 AI 味改写——修改开头、替换书面过渡词、打破规整结构等。
+    - False：跳过操作清单，只做轻量风格一致性润色，适合快速预览或需要保留 AI 调性的场景。
+    """
+
+    preserve_title: bool = False
+    """是否将 topic 视为固定标题并强制保留。
+    - False（默认）：保持现有行为，模型可根据命题自行生成或调整标题。
+    - True：topic 会被视为最终标题，生成和润色阶段都不得改写，Pipeline 结束前也会强制兜底覆盖。
+    """
+
 
 @dataclass
 class ArticleStyle:

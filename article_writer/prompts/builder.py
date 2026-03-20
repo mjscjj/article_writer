@@ -90,6 +90,8 @@ class PromptBuilder:
         topic: str,
         search_data: list[str],
         spec: ArticleSpec,
+        *,
+        fixed_title: str | None = None,
     ) -> str:
         """组装文章生成的 user prompt。
 
@@ -102,6 +104,12 @@ class PromptBuilder:
 
         parts.append("【命题】")
         parts.append(topic)
+
+        if fixed_title:
+            parts.append("")
+            parts.append("【固定标题】")
+            parts.append(fixed_title)
+            parts.append("注意：标题必须严格使用这一行文本，禁止改写、禁止润色、禁止另起标题。")
 
         # ---- 素材 ----
         parts.append("")
@@ -142,7 +150,10 @@ class PromptBuilder:
         parts.append("")
         parts.append("请基于以上命题和素材，撰写一篇高质量的公众号文章。")
         parts.append("要求：")
-        parts.append("1. 标题要激发好奇心，可使用数字、疑问句或反常识表述")
+        if fixed_title:
+            parts.append("1. 第一行标题必须与【固定标题】完全一致")
+        else:
+            parts.append("1. 标题要激发好奇心，可使用数字、疑问句或反常识表述")
         parts.append("2. 引用素材中的数据时要自然融入行文，不要简单罗列")
         parts.append("3. 用读者能感同身受的场景或案例来引出观点")
         parts.append("4. 确保内容准确、有深度、有独到见解")
@@ -164,44 +175,84 @@ class PromptBuilder:
         writer: WriterPreset,
         content: str,
         article_spec: ArticleSpec | None = None,
+        *,
+        enable_humanize: bool = True,
+        fixed_title: str | None = None,
     ) -> str:
         """组装润色阶段的 user prompt。
 
-        结构：
-        - 润色操作清单（来自 core.polish_checklist）
+        Args:
+            core: 核心约束（禁词、润色清单）
+            writer: 作者预设（polish_persona、自定义 checklist、额外禁词）
+            content: 待润色的文章原文
+            article_spec: 字数 / 章节结构约束（可选）
+            enable_humanize: 是否执行「去 AI 味」操作清单。
+                True（默认）：使用 writer.polish_checklist（如有）或 core.polish_checklist，
+                    进行完整的去 AI 味改写。
+                False：跳过操作清单，只做轻量风格一致性润色，
+                    适用于需要保留 AI 写作调性或快速预览的场景。
+
+        结构（enable_humanize=True）：
+        - 润色操作清单（writer 自定义 > core 默认）
         - 禁词清单（core + writer.extra 合并）
+        - 结构约束（来自 article_spec，可选）
+        - 原文
+
+        结构（enable_humanize=False）：
+        - 轻量风格提示（保持人设一致即可）
         - 结构约束（来自 article_spec，可选）
         - 原文
         """
         parts: list[str] = []
 
-        parts.append(
-            "下面是一篇草稿，按照操作清单逐项检查并改写，"
-            "让它像这位作者自己写的，而不像 AI 生成的报告。"
-        )
-        parts.append("")
-
-        # ---- 操作清单 ----
-        parts.append("【操作清单——必须全部执行，不能跳过】")
-        parts.append("")
-        for i, item in enumerate(core.polish_checklist, 1):
-            parts.append(f"{i}. {item}")
-            parts.append("")
-
-        # ---- 禁词 ----
-        all_forbidden = core.forbidden_words + writer.forbidden_words_extra
-        if all_forbidden:
-            idx = len(core.polish_checklist) + 1
+        if enable_humanize:
             parts.append(
-                f"{idx}. 绝对禁词检查（这些词出现就删掉或替换）：\n"
-                f"   {'、'.join(all_forbidden)}"
+                "下面是一篇草稿，按照操作清单逐项检查并改写，"
+                "让它像这位作者自己写的，而不像 AI 生成的报告。"
             )
             parts.append("")
 
-        parts.append(
-            "保持原文的核心观点、数据、段落顺序不变。只改表达方式，不增删实质内容。"
-        )
+            # ---- 操作清单：writer 自定义优先，否则回退 core ----
+            checklist = writer.polish_checklist if writer.polish_checklist is not None else core.polish_checklist
+            parts.append("【操作清单——必须全部执行，不能跳过】")
+            parts.append("")
+            for i, item in enumerate(checklist, 1):
+                parts.append(f"{i}. {item}")
+                parts.append("")
+
+            # ---- 禁词 ----
+            all_forbidden = core.forbidden_words + writer.forbidden_words_extra
+            if all_forbidden:
+                idx = len(checklist) + 1
+                parts.append(
+                    f"{idx}. 绝对禁词检查（这些词出现就删掉或替换）：\n"
+                    f"   {'、'.join(all_forbidden)}"
+                )
+                parts.append("")
+
+            parts.append(
+                "保持原文的核心观点、数据、段落顺序不变。只改表达方式，不增删实质内容。"
+            )
+        else:
+            # ---- 轻量润色：只做风格一致性，不做去 AI 味改写 ----
+            parts.append(
+                "下面是一篇草稿，请进行轻量润色：确保行文风格与作者人设一致，"
+                "修正明显的语病和重复表述，保持整体流畅即可。"
+                "不需要进行「去 AI 味」改写，保留原有的语言调性和结构。"
+            )
+            parts.append("")
+            parts.append(
+                "保持原文的核心观点、数据、段落顺序和写作风格不变。"
+                "只修正语法错误、重复词汇和不自然断句，不做大幅改写。"
+            )
+
         parts.append("")
+
+        if fixed_title:
+            parts.append("【固定标题——禁止改写】")
+            parts.append(f"- 标题必须严格保持为：{fixed_title}")
+            parts.append("- 只允许润色正文，禁止改动标题措辞、字序、标点")
+            parts.append("")
 
         # ---- 结构约束（来自 article_spec）----
         if article_spec is not None:
@@ -213,6 +264,27 @@ class PromptBuilder:
             if article_spec.section_count > 0:
                 parts.append(
                     f"- 保留 {article_spec.section_count} 个正文小节，不得合并或删减章节"
+                )
+            opening_desc = {
+                "scene": "如果原文开头已经符合场景化或第一人称引入，就保留；否则润色后开头应以具体场景或第一人称把读者拉进来",
+                "question": "开头必须保留或润色为问题式引入，用自然的问题把读者拉进来，不要改成固定场景模板",
+                "data": "开头必须保留或润色为数据/事实引入，优先用反直觉的数据或事实开场，不要改成固定场景模板",
+            }
+            parts.append(
+                f"- 开头要求：{opening_desc.get(article_spec.opening_style, opening_desc['scene'])}"
+            )
+
+            closing_desc = {
+                "cliffhanger": "结尾保留或润色为悬念、留白或未决问题，不要改成标准总结+行动号召",
+                "question": "结尾保留或润色为反问或发人深省的问题，不要改成其他固定模板",
+                "cta": "结尾保留或润色为明确行动建议，让读者读完就能去做，不要改成悬念式收尾",
+            }
+            parts.append(
+                f"- 结尾要求：{closing_desc.get(article_spec.closing_style, closing_desc['cliffhanger'])}"
+            )
+            if article_spec.must_cite_data and article_spec.min_data_citations > 0:
+                parts.append(
+                    f"- 文中必须保留至少 {article_spec.min_data_citations} 个真实数字/百分比，不得在润色时删掉数据支撑"
                 )
             parts.append("")
 

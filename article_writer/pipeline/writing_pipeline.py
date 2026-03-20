@@ -129,21 +129,28 @@ class WritingPipeline:
             article_spec=opts.article_spec,
             style=opts.style,
             style_analyzer=self.style_analyzer,
+            preserve_title=opts.preserve_title,
         )
+        if opts.preserve_title:
+            article.title = topic
         logger.info(
             "写作完成: title=%s, 字数=%d, 章节=%d, 数据引用=%d",
             article.title, article.word_count, article.section_count, article.data_citation_count,
         )
 
         if opts.enable_polish and self.polisher is not None:
-            logger.info("开始润色...")
+            logger.info("开始润色... enable_humanize=%s", opts.enable_humanize)
             article = self.polisher.polish(
                 article,
                 config=self.config,
                 writer_preset=self.writer_preset,
                 core_prompts=self.core_prompts,
                 article_spec=opts.article_spec,
+                enable_humanize=opts.enable_humanize,
+                preserve_title=opts.preserve_title,
             )
+            if opts.preserve_title:
+                article.title = topic
             logger.info(
                 "润色完成: 字数=%d, 章节=%d",
                 article.word_count, article.section_count,
