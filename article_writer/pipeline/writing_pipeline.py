@@ -36,6 +36,15 @@ from article_writer.style.analyzer import StyleAnalyzer as LLMStyleAnalyzer
 logger = logging.getLogger(__name__)
 
 
+def _resolve_enable_humanize(
+    opts: WritingOptions,
+    writer_preset: WriterPreset,
+) -> bool:
+    if opts.enable_humanize is not None:
+        return opts.enable_humanize
+    return writer_preset.default_enable_humanize
+
+
 class WritingPipeline:
     """写作线：topic + 素材 → Article。
 
@@ -117,6 +126,7 @@ class WritingPipeline:
             生成的 Article 对象。
         """
         opts = options or WritingOptions()
+        enable_humanize = _resolve_enable_humanize(opts, self.writer_preset)
 
         logger.info("写作线启动: topic=%s", topic[:50])
 
@@ -139,14 +149,14 @@ class WritingPipeline:
         )
 
         if opts.enable_polish and self.polisher is not None:
-            logger.info("开始润色... enable_humanize=%s", opts.enable_humanize)
+            logger.info("开始润色... enable_humanize=%s", enable_humanize)
             article = self.polisher.polish(
                 article,
                 config=self.config,
                 writer_preset=self.writer_preset,
                 core_prompts=self.core_prompts,
                 article_spec=opts.article_spec,
-                enable_humanize=opts.enable_humanize,
+                enable_humanize=enable_humanize,
                 preserve_title=opts.preserve_title,
             )
             if opts.preserve_title:

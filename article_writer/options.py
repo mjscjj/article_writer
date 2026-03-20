@@ -39,11 +39,11 @@ class WritingOptions:
     enable_polish: bool = True
     """是否执行润色阶段。"""
 
-    enable_humanize: bool = True
+    enable_humanize: bool | None = None
     """是否在润色阶段执行「去 AI 味」操作清单（需 enable_polish=True 才生效）。
-    - True（默认）：使用 WriterPreset 专属 polish_checklist（或 CorePrompts 默认清单）
-        进行完整的去 AI 味改写——修改开头、替换书面过渡词、打破规整结构等。
-    - False：跳过操作清单，只做轻量风格一致性润色，适合快速预览或需要保留 AI 调性的场景。
+    - None（默认）：跟随 WriterPreset.default_enable_humanize。
+    - True：强制执行去 AI 味润色，覆盖人设默认值。
+    - False：强制关闭去 AI 味润色，只做轻量风格一致性润色，覆盖人设默认值。
     """
 
     preserve_title: bool = False

@@ -1,5 +1,5 @@
 from article_writer.options import WritingOptions
-from article_writer.pipeline.writing_pipeline import WritingPipeline
+from article_writer.pipeline.writing_pipeline import WritingPipeline, _resolve_enable_humanize
 from article_writer.prompts import ArticleSpec, CorePrompts, PromptBuilder, WriterPreset
 from article_writer.schema import Article
 
@@ -69,3 +69,17 @@ def test_润色_prompt_会锁定标题不允许改写():
 
     assert "【固定标题——禁止改写】" in prompt
     assert "标题必须严格保持为：原始标题" in prompt
+
+
+def test_科技博主人设默认关闭去_ai味():
+    opts = WritingOptions()
+    writer = WriterPreset.tech_blogger()
+
+    assert _resolve_enable_humanize(opts, writer) is False
+
+
+def test_用户显式输入可以覆盖人设默认设置():
+    opts = WritingOptions(enable_humanize=True)
+    writer = WriterPreset.tech_blogger()
+
+    assert _resolve_enable_humanize(opts, writer) is True

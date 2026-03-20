@@ -63,6 +63,11 @@ class WriterPreset:
     为 None 时回退到 CorePrompts.polish_checklist（默认行为）。
     """
 
+    default_enable_humanize: bool = True
+    """该人设默认是否开启去 AI 味润色。
+    运行时若 WritingOptions.enable_humanize 显式传入 True/False，则以用户输入优先。
+    """
+
     polish_persona: str = (
         "你是一位资深编辑，帮这位作者把草稿改成他自己说话的风格。"
     )
@@ -101,6 +106,7 @@ class WriterPreset:
             forbidden_words_extra=[
                 "首先其次最后",
             ],
+            default_enable_humanize=False,
             polish_checklist=[
                 (
                     "检查开头：有没有真实体验感和作者本人判断。"
@@ -165,6 +171,7 @@ class WriterPreset:
             forbidden_words_extra=[
                 "暴涨", "暴跌", "财富密码", "稳赚", "躺赚", "上车",
             ],
+            default_enable_humanize=False,
             polish_checklist=[
                 (
                     "检查开头：有没有真实问题意识或读者能立刻理解的切口。"
@@ -428,6 +435,7 @@ class WriterPreset:
                 "养生", "排毒", "调理", "体质", "湿气", "毒素", "神奇",
                 "一招搞定", "根治", "治百病",
             ],
+            default_enable_humanize=False,
             polish_checklist=[
                 (
                     "检查开头：有没有明确问题意识和读者价值。"
@@ -628,6 +636,7 @@ class WriterPreset:
                 "赛道", "风口", "赋能", "生态", "护城河", "颠覆",
                 "用户思维", "增长黑客", "最小可行", "破圈",
             ],
+            default_enable_humanize=False,
             polish_checklist=[
                 (
                     "检查开头：有没有作者亲历感或反常识判断。"
