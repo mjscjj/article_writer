@@ -128,11 +128,13 @@ class PromptBuilder:
         parts.append(f"- 包含 {spec.section_count} 个正文小节")
 
         opening_desc = {
-            "scene": "开头必须用第一人称或具体场景，不能以宏观陈述开头",
-            "question": "开头必须用一个引人好奇的问题把读者拉进来",
-            "data": "开头必须用一个反直觉的数据开场",
+            "scene": "开头建议用具体场景或细节把读者带进来",
+            "question": "开头建议用一个引人好奇的问题把读者拉进来",
+            "data": "开头建议用一个反直觉的数据或事实切入",
         }
-        parts.append(f"- {opening_desc.get(spec.opening_style, opening_desc['scene'])}")
+        opening_style = str(getattr(spec, "opening_style", "") or "").strip().lower()
+        if opening_style and opening_style != "none":
+            parts.append(f"- {opening_desc.get(opening_style, opening_desc['scene'])}")
 
         closing_desc = {
             "cliffhanger": "结尾用一个让人继续想的悬念或思考，不要总结+号召的套路",
@@ -155,7 +157,7 @@ class PromptBuilder:
         else:
             parts.append("1. 标题要激发好奇心，可使用数字、疑问句或反常识表述")
         parts.append("2. 引用素材中的数据时要自然融入行文，不要简单罗列")
-        parts.append("3. 用读者能感同身受的场景或案例来引出观点")
+        parts.append("3. 用最适合本篇风格的方式引出观点，不要硬套固定开头模板")
         parts.append("4. 确保内容准确、有深度、有独到见解")
 
         return "\n".join(parts)
@@ -266,13 +268,15 @@ class PromptBuilder:
                     f"- 保留 {article_spec.section_count} 个正文小节，不得合并或删减章节"
                 )
             opening_desc = {
-                "scene": "如果原文开头已经符合场景化或第一人称引入，就保留；否则润色后开头应以具体场景或第一人称把读者拉进来",
-                "question": "开头必须保留或润色为问题式引入，用自然的问题把读者拉进来，不要改成固定场景模板",
-                "data": "开头必须保留或润色为数据/事实引入，优先用反直觉的数据或事实开场，不要改成固定场景模板",
+                "scene": "如果原文已经有自然的场景或细节切口，就保留；否则只在确有必要时补充，不要硬套模板",
+                "question": "如果原文已经是问题式切入，就保留；否则不要为了形式强行改成提问开头",
+                "data": "如果原文已经是数据或事实切入，就保留；否则不要为了形式强行改成数据开头",
             }
-            parts.append(
-                f"- 开头要求：{opening_desc.get(article_spec.opening_style, opening_desc['scene'])}"
-            )
+            opening_style = str(getattr(article_spec, "opening_style", "") or "").strip().lower()
+            if opening_style and opening_style != "none":
+                parts.append(
+                    f"- 开头要求：{opening_desc.get(opening_style, opening_desc['scene'])}"
+                )
 
             closing_desc = {
                 "cliffhanger": "结尾保留或润色为悬念、留白或未决问题，不要改成标准总结+行动号召",
