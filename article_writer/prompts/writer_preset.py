@@ -163,6 +163,7 @@ class WriterPreset:
             forbidden_words_extra=[
                 "炸裂", "封神", "赢麻了", "YYDS",
             ],
+            default_enable_humanize=False,
             polish_checklist=[
                 "检查语气是否克制、稳定、有判断，不要写成聊天流水账",
                 "删除无依据的主观感受和多余自我代入，保留真正必要的判断边界",
