@@ -140,6 +140,35 @@ print(result.article.quality_report())
 print(f"HTML: {result.publish_path}")
 ```
 
+### 结构化日志
+
+写作线和排版线都会输出统一格式的进度日志，前缀固定为 `PIPELINE_PROGRESS`，方便接入方按行解析进度。
+
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+```
+
+典型日志示例：
+
+```text
+PIPELINE_PROGRESS {"event":"pipeline_progress","pipeline":"writing","step":"pipeline","status":"start","topic":"MCP 协议如何改变 AI 开发"}
+PIPELINE_PROGRESS {"elapsed_ms":8421,"event":"pipeline_progress","pipeline":"writing","step":"write","status":"end","title":"MCP 协议如何改变 AI 开发","word_count":1860}
+PIPELINE_PROGRESS {"event":"pipeline_progress","pipeline":"typeset","step":"step1_typeset","status":"start","title":"MCP 协议如何改变 AI 开发"}
+PIPELINE_PROGRESS {"elapsed_ms":2310,"event":"pipeline_progress","pipeline":"typeset","step":"step3_render","status":"end","rendered_length":18234}
+```
+
+建议接入方式：
+
+1. 只处理以 `PIPELINE_PROGRESS ` 开头的日志行。
+2. 去掉前缀后按 JSON 解析。
+3. 通过 `pipeline`、`step`、`status` 判断当前阶段。
+4. 通过 `elapsed_ms`、`word_count`、`paragraph_count`、`publish_path` 等字段展示进度和结果。
+
 ---
 
 ## 三种运行方式

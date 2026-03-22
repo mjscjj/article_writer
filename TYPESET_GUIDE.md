@@ -31,6 +31,26 @@ result = pipeline.run(
 print(result.rendered[:200])
 ```
 
+### 结构化进度日志
+
+`TypesetPipeline` 会输出前缀为 `PIPELINE_PROGRESS` 的 JSON 日志，接入方可以据此判断当前进行到 `step1_typeset / step1_5_image_prompt / step2_generate_images / step3_render / step4_publish` 哪一步，以及每步耗时。
+
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+```
+
+解析方式建议：
+
+1. 读取日志行。
+2. 过滤 `PIPELINE_PROGRESS ` 前缀。
+3. 将后半段 JSON 解析为对象。
+4. 使用 `step` + `status` 更新你的 UI 或任务进度条。
+
 ---
 
 ## TypesetOptions — 排版线运行时参数

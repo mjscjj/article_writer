@@ -32,6 +32,7 @@ from article_writer.prompts import CorePrompts, WriterPreset
 from article_writer.registry import registry
 from article_writer.schema import Article
 from article_writer.style.analyzer import StyleAnalyzer as LLMStyleAnalyzer
+from article_writer.utils.progress_log import elapsed_ms, log_progress, now_perf
 
 logger = logging.getLogger(__name__)
 
@@ -127,9 +128,27 @@ class WritingPipeline:
         """
         opts = options or WritingOptions()
         enable_humanize = _resolve_enable_humanize(opts, self.writer_preset)
+        pipeline_start = now_perf()
 
-        logger.info("写作线启动: topic=%s", topic[:50])
+        log_progress(
+            logger,
+            pipeline="writing",
+            step="pipeline",
+            status="start",
+            topic=topic,
+            enable_polish=opts.enable_polish,
+            enable_humanize=enable_humanize,
+            preserve_title=opts.preserve_title,
+        )
 
+        write_start = now_perf()
+        log_progress(
+            logger,
+            pipeline="writing",
+            step="write",
+            status="start",
+            topic=topic,
+        )
         article = self.writer.write(
             topic=topic,
             search_data=opts.search_data,
@@ -143,13 +162,28 @@ class WritingPipeline:
         )
         if opts.preserve_title:
             article.title = topic
-        logger.info(
-            "写作完成: title=%s, 字数=%d, 章节=%d, 数据引用=%d",
-            article.title, article.word_count, article.section_count, article.data_citation_count,
+        log_progress(
+            logger,
+            pipeline="writing",
+            step="write",
+            status="end",
+            elapsed_ms=elapsed_ms(write_start),
+            title=article.title,
+            word_count=article.word_count,
+            section_count=article.section_count,
+            data_citation_count=article.data_citation_count,
         )
 
         if opts.enable_polish and self.polisher is not None:
-            logger.info("开始润色... enable_humanize=%s", enable_humanize)
+            polish_start = now_perf()
+            log_progress(
+                logger,
+                pipeline="writing",
+                step="polish",
+                status="start",
+                title=article.title,
+                enable_humanize=enable_humanize,
+            )
             article = self.polisher.polish(
                 article,
                 config=self.config,
@@ -161,9 +195,33 @@ class WritingPipeline:
             )
             if opts.preserve_title:
                 article.title = topic
-            logger.info(
-                "润色完成: 字数=%d, 章节=%d",
-                article.word_count, article.section_count,
+            log_progress(
+                logger,
+                pipeline="writing",
+                step="polish",
+                status="end",
+                elapsed_ms=elapsed_ms(polish_start),
+                title=article.title,
+                word_count=article.word_count,
+                section_count=article.section_count,
+            )
+        else:
+            log_progress(
+                logger,
+                pipeline="writing",
+                step="polish",
+                status="skip",
+                reason="disabled_or_missing_polisher",
             )
 
+        log_progress(
+            logger,
+            pipeline="writing",
+            step="pipeline",
+            status="end",
+            elapsed_ms=elapsed_ms(pipeline_start),
+            title=article.title,
+            word_count=article.word_count,
+            section_count=article.section_count,
+        )
         return article

@@ -28,6 +28,7 @@ from article_writer.pipeline.typesetter import LLMTypesetter
 from article_writer.prompts import CorePrompts, ImagePreset, PromptBuilder
 from article_writer.registry import registry
 from article_writer.schema import Article, TypesetArticle
+from article_writer.utils.progress_log import elapsed_ms, log_progress, now_perf
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,7 @@ class TypesetPipeline:
         Step 4:   发布
         """
         opts = options or TypesetOptions()
+        pipeline_start = now_perf()
 
         if isinstance(article, str):
             content = article.strip()
@@ -138,11 +140,28 @@ class TypesetPipeline:
                 content=body,
             )
 
-        logger.info("排版线启动: title=%s", article.title)
+        log_progress(
+            logger,
+            pipeline="typeset",
+            step="pipeline",
+            status="start",
+            title=article.title,
+            enable_images=opts.enable_images,
+            enable_cover=opts.enable_cover,
+            output_format=opts.output_format,
+        )
 
         image_preset = opts.image_preset or ImagePreset()
 
         # Step 1: LLM 排版决策（段落划分 + 类型标注 + emoji + 配图位置）
+        step1_start = now_perf()
+        log_progress(
+            logger,
+            pipeline="typeset",
+            step="step1_typeset",
+            status="start",
+            title=article.title,
+        )
         typeset_article = self.typesetter.typeset(
             article,
             config=self.config,
@@ -151,10 +170,15 @@ class TypesetPipeline:
             enable_images=opts.enable_images,
             article_style=opts.article_style,
         )
-        logger.info(
-            "Step1 完成: %d 段落（其中 %d 需要配图）",
-            len(typeset_article.paragraphs),
-            sum(1 for p in typeset_article.paragraphs if p.needs_image),
+        requested_image_count = sum(1 for p in typeset_article.paragraphs if p.needs_image)
+        log_progress(
+            logger,
+            pipeline="typeset",
+            step="step1_typeset",
+            status="end",
+            elapsed_ms=elapsed_ms(step1_start),
+            paragraph_count=len(typeset_article.paragraphs),
+            requested_image_count=requested_image_count,
         )
 
         # Step 1.5: 专职图片 prompt 生成（仅在需要生成图片时调用）
@@ -164,7 +188,14 @@ class TypesetPipeline:
             or opts.enable_cover
         )
         if needs_any_image:
-            logger.info("Step1.5: 专职图片 prompt 生成（封面 + 正文配图）...")
+            step15_start = now_perf()
+            log_progress(
+                logger,
+                pipeline="typeset",
+                step="step1_5_image_prompt",
+                status="start",
+                title=article.title,
+            )
             prompter = ImagePrompter(self.config)
             image_prompter_result = prompter.generate_prompts(
                 article,
@@ -176,16 +207,55 @@ class TypesetPipeline:
             for idx, prompt in image_prompter_result.image_prompts.items():
                 if 0 <= idx < len(typeset_article.paragraphs):
                     typeset_article.paragraphs[idx].image_prompt = prompt
-            logger.info(
-                "Step1.5 完成: 主旨=%s, 正文配图=%d 张",
-                image_prompter_result.article_theme,
-                len(image_prompter_result.image_prompts),
+            log_progress(
+                logger,
+                pipeline="typeset",
+                step="step1_5_image_prompt",
+                status="end",
+                elapsed_ms=elapsed_ms(step15_start),
+                article_theme=image_prompter_result.article_theme,
+                body_prompt_count=len(image_prompter_result.image_prompts),
+            )
+        else:
+            log_progress(
+                logger,
+                pipeline="typeset",
+                step="step1_5_image_prompt",
+                status="skip",
+                reason="images_disabled_or_not_needed",
             )
 
         # Step 2: 图片生成（使用 Step 1.5 生成的高质量 prompt）
+        step2_start = now_perf()
+        log_progress(
+            logger,
+            pipeline="typeset",
+            step="step2_generate_images",
+            status="start",
+            requested_image_count=requested_image_count,
+            enable_cover=opts.enable_cover,
+        )
         self._fill_images(typeset_article, article, opts, image_preset, image_prompter_result)
+        generated_image_count = sum(1 for p in typeset_article.paragraphs if p.image_url)
+        log_progress(
+            logger,
+            pipeline="typeset",
+            step="step2_generate_images",
+            status="end",
+            elapsed_ms=elapsed_ms(step2_start),
+            generated_image_count=generated_image_count,
+            has_cover=bool(typeset_article.cover_image_url),
+        )
 
         # Step 3: 渲染
+        render_start = now_perf()
+        log_progress(
+            logger,
+            pipeline="typeset",
+            step="step3_render",
+            status="start",
+            output_format=opts.output_format,
+        )
         effective_style = opts.get_effective_style()
         rendered = self.renderer.render(
             typeset_article,
@@ -193,17 +263,59 @@ class TypesetPipeline:
             article_style=effective_style,
             emoji_level=opts.emoji_level,
         )
-        logger.info("渲染完成: %d 字符", len(rendered))
+        log_progress(
+            logger,
+            pipeline="typeset",
+            step="step3_render",
+            status="end",
+            elapsed_ms=elapsed_ms(render_start),
+            rendered_length=len(rendered),
+        )
 
         # Step 4: 发布
         publish_path = None
         if self.publisher and (opts.save_path or opts.auto_preview):
+            publish_start = now_perf()
+            log_progress(
+                logger,
+                pipeline="typeset",
+                step="step4_publish",
+                status="start",
+                save_path=opts.save_path or "",
+                auto_preview=opts.auto_preview,
+            )
             publish_path = self.publisher.publish(
                 rendered,
                 save_path=opts.save_path,
                 auto_preview=opts.auto_preview,
             )
-            logger.info("已发布: %s", publish_path)
+            log_progress(
+                logger,
+                pipeline="typeset",
+                step="step4_publish",
+                status="end",
+                elapsed_ms=elapsed_ms(publish_start),
+                publish_path=publish_path,
+            )
+        else:
+            log_progress(
+                logger,
+                pipeline="typeset",
+                step="step4_publish",
+                status="skip",
+                reason="no_publisher_or_publish_disabled",
+            )
+
+        log_progress(
+            logger,
+            pipeline="typeset",
+            step="pipeline",
+            status="end",
+            elapsed_ms=elapsed_ms(pipeline_start),
+            paragraph_count=len(typeset_article.paragraphs),
+            rendered_length=len(rendered),
+            publish_path=publish_path or "",
+        )
 
         return TypesetResult(
             article=typeset_article,
